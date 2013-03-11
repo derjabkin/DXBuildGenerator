@@ -38,6 +38,7 @@ namespace DXBuildGenerator {
             SetPropertyValue(project, "TasksAssembly", GetType().Assembly.Location);
             foreach (var p in allProjects) {
                 bool added = false;
+                //TODO: Get rid of hard-coded exclusions
                 if (!p.GetAssemblyName().Contains("SharePoint") && !p.FullPath.Contains("DevExpress.Xpo.Extensions.csproj")) {
                     if (IsSilverlightProject(p)) {
                         if (!p.FullPath.Contains(".DemoBase.")) {

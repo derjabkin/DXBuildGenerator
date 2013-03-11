@@ -55,6 +55,7 @@ namespace DXBuildGenerator
                 visited.Add(project);
                 foreach (var reference in project.GetItems("Reference"))
                 {
+                    //TODO: Get rid of hard-coded exclusions
                     if (reference.EvaluatedInclude != "DevExpress.XtraRichEdit.v12.2.Extensions, Version=12.2.0.0, Culture=neutral, PublicKeyToken=79868b8147b5eae4, processorArchitecture=MSIL")
                     {
                         AssemblyName assemblyName = new AssemblyName(reference.EvaluatedInclude);
