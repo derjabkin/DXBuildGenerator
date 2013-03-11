@@ -12,10 +12,12 @@ using Microsoft.Build.Construction;
 using System.Xml.Linq;
 using CommandLine;
 using CommandLine.Text;
+using System.Reflection;
 
 namespace DXBuildGenerator {
     class BuildGenerator {
         private readonly List<string> referenceFiles = new List<string>();
+        private Assembly vsShellAssembly;
 
 
         internal void Generate() {
@@ -25,6 +27,8 @@ namespace DXBuildGenerator {
                 from fn in Directory.GetFiles(SourceCodeDir, "*.csproj", SearchOption.AllDirectories)
                 select new Project(fn)).ToArray();
 
+
+            vsShellAssembly = GetMicrosoftVisualStudioShellAssembly();
 
             var silverlightProjects = new SortedProjects();
             var windowsProjects = new SortedProjects();
@@ -54,6 +58,9 @@ namespace DXBuildGenerator {
             silverlightProjects.Sort();
             windowsProjects.Sort();
 
+            foreach (var p in windowsProjects.SortedList)
+                UpdateProjectReferences(p);
+
             referenceFiles.Clear();
             PopulateReferenceFiles(silverlightProjects.UnknownReferences);
             PopulateReferenceFiles(windowsProjects.UnknownReferences);
@@ -73,7 +80,7 @@ namespace DXBuildGenerator {
             ConvertProjectsToBuild(project, silverlightProjects, null, "4.0", true);
             ConvertProjectsToBuild(project, windowsProjects, null, "4.0", false);
 
-            
+
 
             File.WriteAllText(OutputFileName, project.ToString().Replace("<ItemGroup xmlns=\"\">", "<ItemGroup>"));
         }
@@ -194,8 +201,18 @@ namespace DXBuildGenerator {
 
         }
 
-        private static string GetFrameworkVersion(Project project) {
-            if (project.IsFramework4())
+        private bool IsVisualStudioShellReference(ProjectItem referenceItem) {
+            AssemblyName name = new AssemblyName(referenceItem.EvaluatedInclude);
+            return (name.Name == vsShellAssembly.GetName().Name);
+        }
+        private bool ContainsVisualStudioShell40Reference(Project project) {
+            if (vsShellAssembly.ImageRuntimeVersion.StartsWith("v4.0", StringComparison.OrdinalIgnoreCase))
+                return project.GetItems("Reference").Any(r => IsVisualStudioShellReference(r));
+            else
+                return false;
+        }
+        private string GetFrameworkVersion(Project project) {
+            if (project.IsFramework4() || ContainsVisualStudioShell40Reference(project))
                 return "v4.0";
             else
                 return "v3.5";
@@ -230,6 +247,34 @@ namespace DXBuildGenerator {
 
 
         private void UpdateProjectReferences(Project p) {
+            //Making references to VisualStudio assemblies version-neutral.
+            bool shouldSaveProject = false;
+            foreach (var r in p.GetItems("Reference")) {
+                if (IsVisualStudioShellReference(r)) {
+                    r.UnevaluatedInclude = vsShellAssembly.FullName;
+                    shouldSaveProject = true;
+                }
+                else if (r.EvaluatedInclude.StartsWith("Microsoft.VisualStudio.", StringComparison.OrdinalIgnoreCase)) {
+                    r.UnevaluatedInclude = MakeShortReference(r.EvaluatedInclude);
+                    shouldSaveProject = true;
+                }
+            }
+            if (shouldSaveProject) p.Save();
+        }
+
+        private string MakeShortReference(string reference) {
+            AssemblyName an = new AssemblyName(reference);
+            return an.Name;
+        }
+
+        private static Assembly GetMicrosoftVisualStudioShellAssembly() {
+            string dir = System.Environment.ExpandEnvironmentVariables(@"%windir%\Microsoft.NET\assembly\GAC_MSIL\Microsoft.VisualStudio.Shell");
+            if (Directory.Exists(dir)) {
+                string versionDir = Directory.GetDirectories(dir).OrderBy(d => d).First();
+                return Assembly.ReflectionOnlyLoadFrom(Directory.GetFiles(versionDir).Single());
+            }
+            else
+                return null;
         }
     }
 }
