@@ -1,0 +1,25 @@
+﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  
+  <UsingTask TaskName="PatchInternalsVisibleTo" AssemblyFile="c:\sergey\dotnet\DevExpressBuild\BuildTools\ConvertionTasks\bin\Debug\ConvertionTasks.dll" />
+
+  <PropertyGroup>
+    <OutputPath>$(MSBuildProjectDirectory)\DevExpress.dll\$(Configuration)\</OutputPath>
+    <OutputPathSL>$(MSBuildProjectDirectory)\DevExpress.dll\$(Configuration)SL\</OutputPathSL>
+    <DXReferencePath>c:\Sergey\DotNet\DevExpressBuild\References</DXReferencePath>
+    <DevExpressSourceDir>c:\sergey\dotnet\DevExpressBuild\Source</DevExpressSourceDir>
+  </PropertyGroup>
+  <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
+  <Target Name="Build">
+    <PatchInternalsVisibleTo FileNames="@(PatchInternalsVisibleTo)"
+                           KeyFileName="$(DevExpressSourceDir)\DevExpress.Key\StrongKey.snk"
+                           SNExeFileName="c:\Program Files (x86)\Microsoft SDKs\Windows\v7.0A\bin\NETFX 4.0 Tools\sn.exe"/>
+    <Copy SourceFiles="@(ReferenceFile)" DestinationFolder="$(OutputPath)" />
+    <CallTarget Targets="BuildProjects"/>
+  </Target>
+  <Target Name="BuildProjects" Inputs="@(ProjectToBuild)" Outputs="Outputs">
+    <Message Text="OutputPath = $(OutputPath)"/>
+    <MSBuild Condition="'%(ProjectToBuild.SL)'!=''" Projects="%(ProjectToBuild.Identity)" Properties="Configuration=$(Configuration);OutDir=$(OutputPathSL);ReferencePath=$(OutputPathSL);AssemblyOriginatorKeyFile=$(DevExpressSourceDir)\DevExpress.Key\StrongKey.snk;BuildTasksPath=$(MSBuildProjectDirectory)\Tasks" StopOnFirstFailure="true" Targets="Clean;Rebuild" ToolsVersion="4.0" />
+    <MSBuild Condition="'%(ProjectToBuild.SL)'==''" Projects="%(ProjectToBuild.Identity)" Properties="Configuration=$(Configuration);OutDir=$(OutputPath);ReferencePath=$(OutputPath);AssemblyOriginatorKeyFile=$(DevExpressSourceDir)\DevExpress.Key\StrongKey.snk;TargetFrameworkVersion=%(ProjectToBuild.FrameworkVersion);TreatWarningsAsErrors=False;BuildTasksPath=$(MSBuildProjectDirectory)\Tasks" 
+             StopOnFirstFailure="true" Targets="Clean;Rebuild" ToolsVersion="%(ProjectToBuild.ToolsVersion)" />
+  </Target>
+</Project>
