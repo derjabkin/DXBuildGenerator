@@ -59,6 +59,8 @@ namespace DXBuildGenerator {
             silverlightProjects.Sort();
             windowsProjects.Sort();
 
+            string[] missingReferences = windowsProjects.SortedList.SelectMany(p => CheckProjectReferences(p)).Distinct().ToArray();
+
             foreach (var p in windowsProjects.SortedList)
                 UpdateProjectReferences(p);
 
@@ -213,7 +215,7 @@ namespace DXBuildGenerator {
                 return false;
         }
         private string GetFrameworkVersion(Project project) {
-            if (project.IsFramework4() || ContainsVisualStudioShell40Reference(project))
+            if (project.IsFramework4())
                 return "v4.0";
             else
                 return "v3.5";
@@ -247,15 +249,49 @@ namespace DXBuildGenerator {
         }
 
 
+        private bool CanSubstituteReference(Project p, string reference) {
+            string projectFrameworkVersion = GetFrameworkVersion(p);
+
+            AssemblyName name = new AssemblyName(reference);
+            try {
+                var asm = Assembly.LoadWithPartialName(name.Name);
+                if (asm != null) {
+                    return asm.ImageRuntimeVersion.Substring(0, projectFrameworkVersion.Length).CompareTo(projectFrameworkVersion) <= 0;
+
+                }
+            }
+            catch (IOException) {
+            }
+            return false;
+
+        }
+        private IEnumerable<string> CheckProjectReferences(Project p) {
+            //Making references to VisualStudio assemblies version-neutral.
+            List<string> missingReferences = new List<string>();
+            foreach (var r in p.GetItems("Reference")) {
+                if (r.EvaluatedInclude.StartsWith("Microsoft.VisualStudio.", StringComparison.OrdinalIgnoreCase)) {
+                    try {
+                        Assembly.ReflectionOnlyLoad(r.EvaluatedInclude);
+                    }
+                    catch (IOException) {
+                        if (!CanSubstituteReference(p, r.EvaluatedInclude))
+                            missingReferences.Add(r.EvaluatedInclude);
+                    }
+                }
+            }
+
+            return missingReferences;
+        }
+
+
         private void UpdateProjectReferences(Project p) {
             //Making references to VisualStudio assemblies version-neutral.
             bool shouldSaveProject = false;
             foreach (var r in p.GetItems("Reference")) {
-                if (IsVisualStudioShellReference(r)) {
-                    r.UnevaluatedInclude = vsShellAssembly.FullName;
-                    shouldSaveProject = true;
-                }
-                else if (r.EvaluatedInclude.StartsWith("Microsoft.VisualStudio.", StringComparison.OrdinalIgnoreCase)) {
+                if (r.EvaluatedInclude.StartsWith("Microsoft.VisualStudio.", StringComparison.OrdinalIgnoreCase)
+                    && !r.EvaluatedInclude.StartsWith("Microsoft.VisualStudio.Shell", StringComparison.OrdinalIgnoreCase)
+                    && !CanSubstituteReference(p, r.EvaluatedInclude)) {
+
                     r.UnevaluatedInclude = MakeShortReference(r.EvaluatedInclude);
                     shouldSaveProject = true;
                 }

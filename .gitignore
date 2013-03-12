@@ -30,3 +30,4 @@ obj.SL
 obj.WPF
 obj.Wpf
 objSL
+*.pdb
