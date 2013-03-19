@@ -1,5 +1,10 @@
 CAUTION: This is a pre-alpha version. The programm modifies .cs and .csproj files. Please make backup copies of the originals!
 
+
+Requirements:
+
+- Silverlight 5.0
+
 Following assemblies are required to be installed in the GAC:
 
 Microsoft.VisualStudio.Shell, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL
@@ -17,6 +22,8 @@ Usage: DXBuildGenerator -s <source directory> -r <references directory>
   -s        Required. Source code directory
 
   -r        Required. Reference files root directory
+
+  --nosl    Skip silverlight projects
 
   --help    Display this help screen.
   

@@ -18,10 +18,7 @@ namespace DXBuildGenerator {
         internal void Generate() {
             XDocument project = XDocument.Load(TemplateFileName);
 
-            Project[] allProjects = (
-                from fn in Directory.GetFiles(SourceCodeDir, "*.csproj", SearchOption.AllDirectories)
-                select new Project(fn)).ToArray();
-
+            string[] projectFiles = Directory.GetFiles(SourceCodeDir, "*.csproj", SearchOption.AllDirectories);
 
             vsShellAssembly = GetMicrosoftVisualStudioShellAssembly();
 
@@ -31,23 +28,30 @@ namespace DXBuildGenerator {
 
             SetPropertyValue(project, "DevExpressSourceDir", SourceCodeDir);
             SetPropertyValue(project, "TasksAssembly", GetType().Assembly.Location);
-            foreach (var p in allProjects) {
+
+            foreach (var projectFile in projectFiles) {
                 bool added = false;
-                //TODO: Get rid of hard-coded exclusions
-                if (!p.GetAssemblyName().Contains("SharePoint") && !p.FullPath.Contains("DevExpress.Xpo.Extensions.csproj")) {
-                    if (IsSilverlightProject(p)) {
-                        if (!p.FullPath.Contains(".DemoBase.")) {
-                            silverlightProjects.Add(p);
+
+                bool isSilverlight = IsSilverlightProject(projectFile);
+                if (!isSilverlight || !SkipSilverlightProjects) {
+
+                    Project p = new Project(projectFile);
+                    //TODO: Get rid of hard-coded exclusions
+                    if (!p.GetAssemblyName().Contains("SharePoint") && !p.FullPath.Contains("DevExpress.Xpo.Extensions.csproj")) {
+                        if (isSilverlight) {
+                            if (!p.FullPath.Contains(".DemoBase.")) {
+                                silverlightProjects.Add(p);
+                                added = true;
+                            }
+                        }
+                        else {
+                            windowsProjects.Add(p);
                             added = true;
                         }
                     }
-                    else {
-                        windowsProjects.Add(p);
-                        added = true;
-                    }
+                    if (!added)
+                        excludedProjects.Add(p);
                 }
-                if (!added)
-                    excludedProjects.Add(p);
 
             }
 
@@ -81,12 +85,30 @@ namespace DXBuildGenerator {
             File.WriteAllText(OutputFileName, project.ToString().Replace("<ItemGroup xmlns=\"\">", "<ItemGroup>"));
         }
 
+
         private static void SetPropertyValue(XDocument project, string propertyName, string value) {
+            var propertyElement = GetPropertyElement(project, propertyName);
+            if (propertyElement == null)
+                throw new ArgumentException(string.Format(CultureInfo.InvariantCulture, "Property '{0}' not found.", propertyName), "propertyName");
+
+            propertyElement.SetValue(value);
+        }
+
+        private static string GetPropertyValue(XDocument project, string propertyName) {
+
+            var propertyElement = GetPropertyElement(project, propertyName);
+            if (propertyElement != null)
+                return propertyElement.Value;
+            else
+                return string.Empty;
+        }
+
+        private static XElement GetPropertyElement(XDocument project, string propertyName) {
             var property = (from e in project.Root.Descendants()
                             where e.Name.LocalName == propertyName &&
                             e.Parent.Name.LocalName == "PropertyGroup"
-                            select e).Single();
-            property.SetValue(value);
+                            select e).FirstOrDefault();
+            return property;
         }
 
         private void CreateReferenceFilesGroup(XDocument project) {
@@ -96,9 +118,14 @@ namespace DXBuildGenerator {
             }
             project.Root.Add(itemGroup);
         }
-        private static bool IsSilverlightProject(Project p) {
-            return p.GetPropertyValue("TargetFrameworkIdentifier") == "Silverlight" || p.GetPropertyValue("BaseIntermediateOutputPath").Contains("obj.SL") ||
-                                    p.FullPath.Contains(".SL");
+        
+        private static bool IsSilverlightProject(string path) {
+            if (Path.GetFileNameWithoutExtension(path).EndsWith(".SL", StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            XDocument projectDoc = XDocument.Load(path);
+            return GetPropertyValue(projectDoc, "TargetFrameworkIdentifier") == "Silverlight" ||
+                GetPropertyValue(projectDoc, "BaseIntermediateOutputPath").Contains("obj.SL");
         }
 
 
@@ -124,6 +151,8 @@ namespace DXBuildGenerator {
         [Option('r', HelpText = "Reference files root directory", Required = true)]
         public string ReferencesPath { get; set; }
 
+        [Option("nosl", HelpText = "Skip silverlight projects")]
+        public bool SkipSilverlightProjects { get; set; }
 
         [HelpOption]
         public string GetUsage() {
@@ -162,6 +191,7 @@ namespace DXBuildGenerator {
             return item;
         }
         private void ConvertProjectsToBuild(XDocument project, SortedProjects projects, string frameworkVersion, string toolsVersion, bool silverlight) {
+            if (projects.SortedList.Count == 0) return;
 
             XElement itemGroup = CreateItemGroup();
 
