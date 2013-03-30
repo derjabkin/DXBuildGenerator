@@ -8,14 +8,18 @@ using System.Xml.Linq;
 using CommandLine;
 using CommandLine.Text;
 using Microsoft.Build.Evaluation;
+using CmdToMSBuild;
 
-namespace DXBuildGenerator {
-    class BuildGenerator {
+namespace DXBuildGenerator
+{
+    class BuildGenerator
+    {
         private readonly List<string> referenceFiles = new List<string>();
         private Assembly vsShellAssembly;
 
 
-        internal void Generate() {
+        internal void Generate()
+        {
             XDocument project = XDocument.Load(TemplateFileName);
 
             string[] projectFiles = Directory.GetFiles(SourceCodeDir, "*.csproj", SearchOption.AllDirectories);
@@ -29,22 +33,28 @@ namespace DXBuildGenerator {
             SetPropertyValue(project, "DevExpressSourceDir", SourceCodeDir);
             SetPropertyValue(project, "TasksAssembly", GetType().Assembly.Location);
 
-            foreach (var projectFile in projectFiles) {
+            foreach (var projectFile in projectFiles)
+            {
                 bool added = false;
 
-                bool isSilverlight = IsSilverlightProject(projectFile);
-                if (!isSilverlight || !SkipSilverlightProjects) {
+                ProjectInfo pi = GetProjectInfo(projectFile);
+                if (!(pi.IsSilverlight && SkipSilverlightProjects) && !(pi.IsTest && SkipTestProjects))
+                {
 
                     Project p = new Project(projectFile);
                     //TODO: Get rid of hard-coded exclusions
-                    if (!p.GetAssemblyName().Contains("SharePoint") && !p.FullPath.Contains("DevExpress.Xpo.Extensions.csproj")) {
-                        if (isSilverlight) {
-                            if (!p.FullPath.Contains(".DemoBase.")) {
+                    if (!p.GetAssemblyName().Contains("SharePoint") && !p.FullPath.Contains("DevExpress.Xpo.Extensions.csproj"))
+                    {
+                        if (pi.IsSilverlight)
+                        {
+                            if (!p.FullPath.Contains(".DemoBase."))
+                            {
                                 silverlightProjects.Add(p);
                                 added = true;
                             }
                         }
-                        else {
+                        else
+                        {
                             windowsProjects.Add(p);
                             added = true;
                         }
@@ -66,7 +76,8 @@ namespace DXBuildGenerator {
             PopulateReferenceFiles(windowsProjects.UnknownReferences);
             referenceFiles.Add(typeof(System.Data.Entity.DbContext).Assembly.Location);
             string xamlResProcDll = Directory.GetFiles(ReferencesPath, "DevExpress.Build.XamlResourceProcessing*.dll", SearchOption.AllDirectories).FirstOrDefault();
-            if (!string.IsNullOrEmpty(xamlResProcDll)) {
+            if (!string.IsNullOrEmpty(xamlResProcDll))
+            {
                 referenceFiles.Add(xamlResProcDll);
                 ConvertTargetFiles(
                     Path.Combine(@"$(BuildTasksPath)", Path.GetFileName(xamlResProcDll)));
@@ -86,7 +97,8 @@ namespace DXBuildGenerator {
         }
 
 
-        private static void SetPropertyValue(XDocument project, string propertyName, string value) {
+        private static void SetPropertyValue(XDocument project, string propertyName, string value)
+        {
             var propertyElement = GetPropertyElement(project, propertyName);
             if (propertyElement == null)
                 throw new ArgumentException(string.Format(CultureInfo.InvariantCulture, "Property '{0}' not found.", propertyName), "propertyName");
@@ -94,7 +106,8 @@ namespace DXBuildGenerator {
             propertyElement.SetValue(value);
         }
 
-        private static string GetPropertyValue(XDocument project, string propertyName) {
+        private static string GetPropertyValue(XDocument project, string propertyName)
+        {
 
             var propertyElement = GetPropertyElement(project, propertyName);
             if (propertyElement != null)
@@ -103,7 +116,8 @@ namespace DXBuildGenerator {
                 return string.Empty;
         }
 
-        private static XElement GetPropertyElement(XDocument project, string propertyName) {
+        private static XElement GetPropertyElement(XDocument project, string propertyName)
+        {
             var property = (from e in project.Root.Descendants()
                             where e.Name.LocalName == propertyName &&
                             e.Parent.Name.LocalName == "PropertyGroup"
@@ -111,29 +125,41 @@ namespace DXBuildGenerator {
             return property;
         }
 
-        private void CreateReferenceFilesGroup(XDocument project) {
+        private void CreateReferenceFilesGroup(XDocument project)
+        {
             XElement itemGroup = CreateItemGroup();
-            foreach (var referenceFile in referenceFiles) {
+            foreach (var referenceFile in referenceFiles)
+            {
                 itemGroup.Add(CreateItem("ReferenceFile", referenceFile));
             }
             project.Root.Add(itemGroup);
         }
-        
-        private static bool IsSilverlightProject(string path) {
-            if (Path.GetFileNameWithoutExtension(path).EndsWith(".SL", StringComparison.OrdinalIgnoreCase))
-                return true;
+
+        private static ProjectInfo GetProjectInfo(string path)
+        {
+
+            ProjectInfo result = new ProjectInfo();
 
             XDocument projectDoc = XDocument.Load(path);
-            return GetPropertyValue(projectDoc, "TargetFrameworkIdentifier") == "Silverlight" ||
+            result.IsSilverlight = Path.GetFileNameWithoutExtension(path).EndsWith(".SL", StringComparison.OrdinalIgnoreCase) ||
+                GetPropertyValue(projectDoc, "TargetFrameworkIdentifier") == "Silverlight" ||
                 GetPropertyValue(projectDoc, "BaseIntermediateOutputPath").Contains("obj.SL");
+
+            string projectTypes = GetPropertyValue(projectDoc, "ProjectTypeGuids");
+
+            result.IsTest = projectTypes != null && projectTypes.IndexOf("3AC096D0-A1C2-E12C-1390-A8335801FDAB", StringComparison.OrdinalIgnoreCase) >= 0;
+            return result;
         }
 
 
-        private void PopulateReferenceFiles(IEnumerable<string> references) {
+        private void PopulateReferenceFiles(IEnumerable<string> references)
+        {
             string[] fileNames = references.Select(r => r += ".dll").ToArray();
-            foreach (string filePath in Directory.EnumerateFiles(ReferencesPath, "*.dll", SearchOption.AllDirectories)) {
+            foreach (string filePath in Directory.EnumerateFiles(ReferencesPath, "*.dll", SearchOption.AllDirectories))
+            {
                 string fileName = Path.GetFileName(filePath);
-                if (fileNames.Contains(fileName, StringComparer.OrdinalIgnoreCase) && !referenceFiles.Contains(fileName, StringComparer.OrdinalIgnoreCase)) {
+                if (fileNames.Contains(fileName, StringComparer.OrdinalIgnoreCase) && !referenceFiles.Contains(fileName, StringComparer.OrdinalIgnoreCase))
+                {
                     referenceFiles.Add(filePath);
                 }
             }
@@ -154,9 +180,14 @@ namespace DXBuildGenerator {
         [Option("nosl", HelpText = "Skip silverlight projects")]
         public bool SkipSilverlightProjects { get; set; }
 
+        [Option("notest", HelpText = "Skip test projects")]
+        public bool SkipTestProjects { get; set; }
+
         [HelpOption]
-        public string GetUsage() {
-            var help = new HelpText {
+        public string GetUsage()
+        {
+            var help = new HelpText
+            {
                 Heading = new HeadingInfo("DXBuildGenerator", GetType().Assembly.GetName().Version.ToString()),
                 AdditionalNewLineAfterOption = true,
                 AddDashesToOption = true
@@ -166,18 +197,21 @@ namespace DXBuildGenerator {
             return help;
         }
 
-        private void ConvertTargetFiles(string taskDllPath) {
+        private void ConvertTargetFiles(string taskDllPath)
+        {
             string[] files = Directory.GetFiles(Path.Combine(SourceCodeDir, @"DevExpress.Xpf.Themes.SL"), "*.targets", SearchOption.AllDirectories);
             foreach (string fileName in files)
                 ReplaceUsingTask(fileName, taskDllPath);
         }
 
-        private static void ReplaceUsingTask(string xmlFileName, string taskDllPath) {
+        private static void ReplaceUsingTask(string xmlFileName, string taskDllPath)
+        {
 
             var doc = XDocument.Load(xmlFileName);
 
             var tasks = doc.Descendants(String.Format("{{{0}}}UsingTask", doc.Root.Name.NamespaceName));
-            foreach (var t in tasks) {
+            foreach (var t in tasks)
+            {
                 var attr = t.Attribute("AssemblyName");
                 if (attr != null) attr.Remove();
                 t.SetAttributeValue("AssemblyFile", taskDllPath);
@@ -185,24 +219,28 @@ namespace DXBuildGenerator {
             doc.Save(xmlFileName);
         }
 
-        private static XElement CreateItem(string itemName, string include) {
+        private static XElement CreateItem(string itemName, string include)
+        {
             XElement item = new XElement(itemName);
             item.Add(new XAttribute("Include", include));
             return item;
         }
-        private void ConvertProjectsToBuild(XDocument project, SortedProjects projects, string frameworkVersion, string toolsVersion, bool silverlight) {
+        private void ConvertProjectsToBuild(XDocument project, SortedProjects projects, string frameworkVersion, string toolsVersion, bool silverlight)
+        {
             if (projects.SortedList.Count == 0) return;
 
             XElement itemGroup = CreateItemGroup();
 
-            foreach (var p in projects.SortedList) {
+            foreach (var p in projects.SortedList)
+            {
 
                 XElement projectToBuild = CreateItem("ProjectToBuild",
                     string.Format(CultureInfo.InvariantCulture, "$(DevExpressSourceDir)\\{0}", RemoveBasePath(p.FullPath, SourceCodeDir)));
 
                 if (silverlight)
                     projectToBuild.Add(new XElement("SL", "True"));
-                else {
+                else
+                {
                     string fw = frameworkVersion;
                     if (string.IsNullOrEmpty(fw))
                         fw = GetFrameworkVersion(p);
@@ -221,32 +259,37 @@ namespace DXBuildGenerator {
 
         }
 
-        private static string GetFrameworkVersion(Project project) {
+        private static string GetFrameworkVersion(Project project)
+        {
             if (project.IsFramework4())
                 return "v4.0";
             else
                 return "v3.5";
         }
 
-        private static XElement CreateItemGroup() {
+        private static XElement CreateItemGroup()
+        {
             XName name = XNamespace.None.GetName("ItemGroup");
             XElement itemGroup = new XElement(name);
             return itemGroup;
         }
 
-        private static string RemoveBasePath(string path, string basePath) {
+        private static string RemoveBasePath(string path, string basePath)
+        {
             if (path.StartsWith(basePath, StringComparison.OrdinalIgnoreCase))
                 return path.Substring(basePath.Length);
             else
                 return path;
         }
-        private void ConvertPatchInternals(XDocument project) {
+        private void ConvertPatchInternals(XDocument project)
+        {
             var infoFiles = (from fn in Directory.GetFiles(SourceCodeDir, "AssemblyInfo.cs", SearchOption.AllDirectories)
                              where File.ReadAllText(fn).Contains("InternalsVisibleTo")
                              select fn);
 
             XElement itemGroup = CreateItemGroup();
-            foreach (string fileFullPath in infoFiles) {
+            foreach (string fileFullPath in infoFiles)
+            {
                 string fileName = RemoveBasePath(fileFullPath, SourceCodeDir);
                 XElement projectToBuild = new XElement("PatchInternalsVisibleTo");
                 projectToBuild.Add(new XAttribute("Include", string.Format(CultureInfo.InvariantCulture, "$(DevExpressSourceDir)\\{0}", fileName)));
@@ -256,32 +299,39 @@ namespace DXBuildGenerator {
         }
 
 
-        private static bool CanSubstituteReference(Project p, string reference) {
+        private static bool CanSubstituteReference(Project p, string reference)
+        {
             string projectFrameworkVersion = GetFrameworkVersion(p);
 
             AssemblyName name = new AssemblyName(reference);
-            try {
+            try
+            {
                 var asm = Assembly.LoadWithPartialName(name.Name);
-                if (asm != null) {
+                if (asm != null)
+                {
                     return asm.ImageRuntimeVersion.Substring(0, projectFrameworkVersion.Length).CompareTo(projectFrameworkVersion) <= 0;
 
                 }
                 else
                     return false;
             }
-            catch (IOException) {
+            catch (IOException)
+            {
                 return false;
             }
 
         }
 
-        private static void UpdateProjectReferences(Project p) {
+        private static void UpdateProjectReferences(Project p)
+        {
             //Making references to VisualStudio assemblies version-neutral.
             bool shouldSaveProject = false;
-            foreach (var r in p.GetItems("Reference")) {
+            foreach (var r in p.GetItems("Reference"))
+            {
                 if (r.EvaluatedInclude.StartsWith("Microsoft.VisualStudio.", StringComparison.OrdinalIgnoreCase)
                     && !r.EvaluatedInclude.StartsWith("Microsoft.VisualStudio.Shell", StringComparison.OrdinalIgnoreCase)
-                    && !CanSubstituteReference(p, r.EvaluatedInclude)) {
+                    && !CanSubstituteReference(p, r.EvaluatedInclude))
+                {
 
                     r.UnevaluatedInclude = MakeShortReference(r.EvaluatedInclude);
                     shouldSaveProject = true;
@@ -290,14 +340,17 @@ namespace DXBuildGenerator {
             if (shouldSaveProject) p.Save();
         }
 
-        private static string MakeShortReference(string reference) {
+        private static string MakeShortReference(string reference)
+        {
             AssemblyName an = new AssemblyName(reference);
             return an.Name;
         }
 
-        private static Assembly GetMicrosoftVisualStudioShellAssembly() {
+        private static Assembly GetMicrosoftVisualStudioShellAssembly()
+        {
             string dir = Environment.ExpandEnvironmentVariables(@"%windir%\Microsoft.NET\assembly\GAC_MSIL\Microsoft.VisualStudio.Shell");
-            if (Directory.Exists(dir)) {
+            if (Directory.Exists(dir))
+            {
                 string versionDir = Directory.GetDirectories(dir).OrderBy(d => d).First();
                 return Assembly.ReflectionOnlyLoadFrom(Directory.GetFiles(versionDir).Single());
             }

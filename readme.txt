@@ -15,17 +15,18 @@ Microsoft.VisualStudio.Shell.Design, Version=9.0.0.0, Culture=neutral, PublicKey
 
 Usage: DXBuildGenerator -s <source directory> -r <references directory>
 
-  -t        (Default: Template.proj) Template file name
+  -t          (Default: Template.proj) Template file name
 
-  -o        (Default: build.proj) Output file name
+  -o          (Default: build.proj) Output file name
 
-  -s        Required. Source code directory
+  -s          Required. Source code directory
 
-  -r        Required. Reference files root directory
+  -r          Required. Reference files root directory
 
-  --nosl    Skip silverlight projects
+  --nosl      Skip silverlight projects
 
-  --help    Display this help screen.
-  
+  --notest    Skip test projects
+
+  --help      Display this help screen.  
 
 Example: DXBuildGenerator -s "c:\Program Files (x86)\DevExpress\DXperience 12.2\Source"  -r "c:\Program Files (x86)\DevExpress\DXperience 12.2"

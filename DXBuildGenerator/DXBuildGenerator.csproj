@@ -59,6 +59,7 @@
     <Compile Include="BuildGenerator.cs" />
     <Compile Include="Extensions.cs" />
     <Compile Include="Program.cs" />
+    <Compile Include="ProjectInfo.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="SortedProjects.cs" />
     <Compile Include="Tasks\PatchInternalsVisibleTo.cs" />
