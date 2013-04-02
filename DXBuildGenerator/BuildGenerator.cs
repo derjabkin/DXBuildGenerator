@@ -38,7 +38,7 @@ namespace DXBuildGenerator
                 bool added = false;
 
                 ProjectInfo pi = GetProjectInfo(projectFile);
-                if (!(pi.IsSilverlight && SkipSilverlightProjects) && !(pi.IsTest && SkipTestProjects))
+                if (!(pi.IsSilverlight && SkipSilverlightProjects) && !(pi.IsTest && SkipTestProjects) && !(pi.IsMvc && SkipMvcProjects))
                 {
 
                     Project p = new Project(projectFile);
@@ -148,6 +148,11 @@ namespace DXBuildGenerator
             string projectTypes = GetPropertyValue(projectDoc, "ProjectTypeGuids");
 
             result.IsTest = projectTypes != null && projectTypes.IndexOf("3AC096D0-A1C2-E12C-1390-A8335801FDAB", StringComparison.OrdinalIgnoreCase) >= 0;
+
+            result.IsMvc = projectDoc.Root.Descendants().Where(e => e.Name.LocalName == "Reference" &&
+                e.Parent.Name.LocalName == "ItemGroup" &&
+                e.Attributes().Where(a => a.Name.LocalName == "Include" && a.Value.StartsWith("System.Web.Mvc", StringComparison.OrdinalIgnoreCase)).Any()).Any();
+
             return result;
         }
 
@@ -182,6 +187,9 @@ namespace DXBuildGenerator
 
         [Option("notest", HelpText = "Skip test projects")]
         public bool SkipTestProjects { get; set; }
+
+        [Option("nomvc", HelpText = "Skip ASP.NET MVC projects")]
+        public bool SkipMvcProjects { get; set; }
 
         [HelpOption]
         public string GetUsage()

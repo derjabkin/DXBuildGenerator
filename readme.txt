@@ -27,6 +27,8 @@ Usage: DXBuildGenerator -s <source directory> -r <references directory>
 
   --notest    Skip test projects
 
-  --help      Display this help screen.  
+  --nomvc     Skip ASP.NET MVC projects
 
+  --help      Display this help screen.
+  
 Example: DXBuildGenerator -s "c:\Program Files (x86)\DevExpress\DXperience 12.2\Source"  -r "c:\Program Files (x86)\DevExpress\DXperience 12.2"
