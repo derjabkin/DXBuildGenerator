@@ -16,6 +16,8 @@
     <SNPath Condition="$(WindowsSdkPath)!=''">$(WindowsSdkPath)\bin\NETFX 4.0 Tools\sn.exe</SNPath>
   </PropertyGroup>
   <UsingTask TaskName="PatchInternalsVisibleTo" AssemblyFile="$(TasksAssembly)" />
+  <UsingTask TaskName="GacInstall" AssemblyFile="$(TasksAssembly)" />
+  <UsingTask TaskName="GacRemove" AssemblyFile="$(TasksAssembly)" />
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
   <Target Name="Build">
     <PatchInternalsVisibleTo FileNames="@(PatchInternalsVisibleTo)"
@@ -24,10 +26,15 @@
     <Copy SourceFiles="@(ReferenceFile)" DestinationFolder="$(OutputPath)" />
     <CallTarget Targets="BuildProjects"/>
   </Target>
+  <Target Name="CopyReferenceFiles">
+    <Copy SourceFiles="@(ReferenceFile)" DestinationFolder="$(ReferenceFilesDestDir)" />
+  </Target>
   <Target Name="BuildProjects" Inputs="@(ProjectToBuild)" Outputs="Outputs">
     <Message Text="OutputPath = $(OutputPath)"/>
+    <GacRemove Assemblies="$(OutputAssembly)"/>
     <MSBuild Condition="'%(ProjectToBuild.SL)'!=''" Projects="%(ProjectToBuild.Identity)" Properties="Configuration=$(Configuration);OutDir=$(OutputPathSL);ReferencePath=$(OutputPathSL);AssemblyOriginatorKeyFile=$(DevExpressSourceDir)\DevExpress.Key\StrongKey.snk;BuildTasksPath=$(OutputPath);Platform=AnyCPU" StopOnFirstFailure="true" Targets="Clean;Rebuild" ToolsVersion="4.0" />
     <MSBuild Condition="'%(ProjectToBuild.SL)'==''" Projects="%(ProjectToBuild.Identity)" Properties="Configuration=$(Configuration);OutDir=$(OutputPath);ReferencePath=$(OutputPath);AssemblyOriginatorKeyFile=$(DevExpressSourceDir)\DevExpress.Key\StrongKey.snk;TargetFrameworkVersion=%(ProjectToBuild.FrameworkVersion);TreatWarningsAsErrors=False;BuildTasksPath=$(OutputPath);Platform=AnyCPU"
              StopOnFirstFailure="true" Targets="Clean;Rebuild" ToolsVersion="%(ProjectToBuild.ToolsVersion)" />
+    <GacInstall Assemblies="$(OutputAssembly)"/>
   </Target>
 </Project>

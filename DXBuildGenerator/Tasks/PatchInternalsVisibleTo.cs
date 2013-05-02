@@ -10,7 +10,7 @@ using System.Globalization;
 using Microsoft.Build.Utilities;
 
 namespace ConvertionTasks {
-    public class PatchInternalsVisibleTo : Microsoft.Build.Utilities.Task {
+    public class PatchInternalsVisibleTo : Task {
 
         [Required]
         public ITaskItem[] FileNames { get; set; }
