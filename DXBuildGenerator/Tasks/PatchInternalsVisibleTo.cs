@@ -10,7 +10,7 @@ using System.Globalization;
 using Microsoft.Build.Utilities;
 
 namespace ConvertionTasks {
-    public class PatchInternalsVisibleTo : Microsoft.Build.Utilities.Task {
+    public class PatchInternalsVisibleTo : Task {
 
         [Required]
         public ITaskItem[] FileNames { get; set; }
@@ -78,7 +78,7 @@ namespace ConvertionTasks {
         }
         private string CreatePublicKey(string keyFileName) {
             string fileName = GetPublicKeyFileName();
-            ExecuteSn("-p {0} {1}", keyFileName, fileName);
+            ExecuteSn("-p \"{0}\" \"{1}\"", keyFileName, fileName);
             return fileName;
         }
 
@@ -99,7 +99,7 @@ namespace ConvertionTasks {
 
         private string ObtainPublicKeyToken(string publicKeyName) {
             string fileName = GetPublicKeyFileName();
-            ExecuteSn("-o {0} {1}", publicKeyName, fileName);
+            ExecuteSn("-o \"{0}\" \"{1}\"", publicKeyName, fileName);
 
             string csvContent = File.ReadAllText(fileName);
             File.Delete(fileName);

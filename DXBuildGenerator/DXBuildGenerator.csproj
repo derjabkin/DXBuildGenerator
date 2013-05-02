@@ -49,6 +49,7 @@
     <Reference Include="System.ComponentModel.DataAnnotations" />
     <Reference Include="System.Core" />
     <Reference Include="System.Data.Entity" />
+    <Reference Include="System.EnterpriseServices" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="Microsoft.CSharp" />
@@ -59,8 +60,12 @@
     <Compile Include="BuildGenerator.cs" />
     <Compile Include="Extensions.cs" />
     <Compile Include="Program.cs" />
+    <Compile Include="ProjectInfo.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="SortedProjects.cs" />
+    <Compile Include="Tasks\GacInstall.cs" />
+    <Compile Include="Tasks\GacTaskBase.cs" />
+    <Compile Include="Tasks\GacRemove.cs" />
     <Compile Include="Tasks\PatchInternalsVisibleTo.cs" />
   </ItemGroup>
   <ItemGroup>
