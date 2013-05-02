@@ -170,7 +170,7 @@ namespace DXBuildGenerator {
             }
         }
 
-        [Option("dx", HelpText = "Path to the DevExpress installation folder.\r\n" +
+        [Option('x', HelpText = "Path to the DevExpress installation folder.\r\n" +
             "If this option is specified, Source code directory,  references directory and the output path are determinated automatically.\r\n" +
             "Example DXGenerator -dx \"c:\\Program Files (x86)\\DevExpress\\DXperience 12.2\"")]
         public string DevExpressRoot { get; set; }
@@ -184,10 +184,10 @@ namespace DXBuildGenerator {
         [Option('o', HelpText = "Output file name", DefaultValue = "build.proj")]
         public string OutputFileName { get; set; }
 
-        [Option('s', HelpText = "Source code directory", Required = true)]
+        [Option('s', HelpText = "Source code directory")]
         public string SourceCodeDir { get; set; }
 
-        [Option('r', HelpText = "Reference files root directory", Required = true)]
+        [Option('r', HelpText = "Reference files root directory")]
         public string ReferencesPath { get; set; }
 
         [Option("nosl", HelpText = "Skip silverlight projects")]
