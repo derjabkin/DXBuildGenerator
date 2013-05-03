@@ -16,6 +16,23 @@ namespace DXBuildGenerator {
         private Assembly vsShellAssembly;
         private List<string> libraryAssemblyNames = new List<string>();
 
+
+        internal BuildGenerator Create(Parser commandLineParser) {
+
+            BuildGenerator generator = new BuildGenerator();
+
+            if (commandLineParser == null)
+                throw new ArgumentNullException("commandLineParser");
+
+
+            return generator;
+
+        }
+
+        internal BuildGenerator Create() {
+            return Create(Parser.Default);
+        }
+
         internal void Generate() {
             XDocument project = XDocument.Load(TemplateFileName);
 
@@ -172,7 +189,7 @@ namespace DXBuildGenerator {
 
         [Option('x', HelpText = "Path to the DevExpress installation folder.\r\n" +
             "If this option is specified, Source code directory,  references directory and the output path are determinated automatically.\r\n" +
-            "Example DXGenerator -dx \"c:\\Program Files (x86)\\DevExpress\\DXperience 12.2\"")]
+            "Example DXGenerator -x \"c:\\Program Files (x86)\\DevExpress\\DXperience 12.2\"")]
         public string DevExpressRoot { get; set; }
 
         [Option("op", HelpText = "Output path for the compiled assemblies. If the value is not specified, the property value from the template will be used.")]
