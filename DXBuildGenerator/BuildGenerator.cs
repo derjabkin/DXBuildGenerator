@@ -17,7 +17,11 @@ namespace DXBuildGenerator {
         private List<string> libraryAssemblyNames = new List<string>();
 
 
-        internal BuildGenerator Create(Parser commandLineParser) {
+
+        private BuildGenerator() {
+
+        }
+        internal static BuildGenerator Create(Parser commandLineParser, string[] args) {
 
             BuildGenerator generator = new BuildGenerator();
 
@@ -25,12 +29,54 @@ namespace DXBuildGenerator {
                 throw new ArgumentNullException("commandLineParser");
 
 
-            return generator;
+            TextWriter helpWriter = commandLineParser.Settings.HelpWriter;
+
+            if (commandLineParser.ParseArguments(args, generator)) {
+
+                if ((string.IsNullOrWhiteSpace(generator.ReferencesPath) || string.IsNullOrWhiteSpace(generator.SourceCodeDir))
+                    && string.IsNullOrEmpty(generator.DevExpressRoot)) {
+                    helpWriter.WriteLine(@"Either -x or -s and -r options should be specified.\r\n");
+                }
+
+
+
+                if (!string.IsNullOrWhiteSpace(generator.DevExpressRoot)) {
+                    if (!CheckDirectoryExists(helpWriter, generator.DevExpressRoot)) return null;
+
+                    generator.OutputPath = generator.ReferencesPath = Path.Combine(generator.DevExpressRoot, "Bin", "Framework");
+                    generator.SourceCodeDir = Path.Combine(generator.DevExpressRoot, "Sources");
+
+                    helpWriter.WriteLine("WARNING: The generated script will replace original DevExpress Assemblies!");
+                }
+                else {
+                    if (string.IsNullOrWhiteSpace(generator.ReferencesPath))
+                        helpWriter.WriteLine("-r option must be specified.");
+
+                    if (string.IsNullOrWhiteSpace(generator.SourceCodeDir))
+                        helpWriter.WriteLine("-s option must be specified.");
+
+                }
+
+
+                if (CheckDirectoryExists(helpWriter, generator.SourceCodeDir) && CheckDirectoryExists(helpWriter, generator.ReferencesPath))
+                    return generator;
+            }
+
+            return null;
 
         }
 
-        internal BuildGenerator Create() {
-            return Create(Parser.Default);
+
+        private static bool CheckDirectoryExists(TextWriter helpWriter, string path) {
+            if (!Directory.Exists(path)) {
+                helpWriter.WriteLine("Directory '{0}' not found.", path);
+                return false;
+            }
+            else
+                return true;
+        }
+        internal static BuildGenerator Create(string[] args) {
+            return Create(Parser.Default, args);
         }
 
         internal void Generate() {
@@ -108,10 +154,9 @@ namespace DXBuildGenerator {
         }
 
 
-        internal void ResolvePaths() {
+        private void ResolvePaths() {
             if (!string.IsNullOrWhiteSpace(DevExpressRoot)) {
-                OutputPath = ReferencesPath = Path.Combine(DevExpressRoot, "Bin", "Framework");
-                SourceCodeDir = Path.Combine(DevExpressRoot, "Sources");
+
             }
         }
         private void CreateAssemblyNamesItems(XDocument project) {
