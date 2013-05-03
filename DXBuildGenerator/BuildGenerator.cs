@@ -35,7 +35,7 @@ namespace DXBuildGenerator {
 
                 if ((string.IsNullOrWhiteSpace(generator.ReferencesPath) || string.IsNullOrWhiteSpace(generator.SourceCodeDir))
                     && string.IsNullOrEmpty(generator.DevExpressRoot)) {
-                    helpWriter.WriteLine(@"Either -x or -s and -r options should be specified.\r\n");
+                    helpWriter.WriteLine(CmdToMSBuild.Properties.Resources.NoPathSpecifiedMessage);
                 }
 
 
@@ -46,14 +46,14 @@ namespace DXBuildGenerator {
                     generator.OutputPath = generator.ReferencesPath = Path.Combine(generator.DevExpressRoot, "Bin", "Framework");
                     generator.SourceCodeDir = Path.Combine(generator.DevExpressRoot, "Sources");
 
-                    helpWriter.WriteLine("WARNING: The generated script will replace original DevExpress Assemblies!");
+                    helpWriter.WriteLine(CmdToMSBuild.Properties.Resources.OriginalFilesReplacementWarning);
                 }
                 else {
                     if (string.IsNullOrWhiteSpace(generator.ReferencesPath))
-                        helpWriter.WriteLine("-r option must be specified.");
+                        helpWriter.WriteLine(CmdToMSBuild.Properties.Resources.ReferencePathNotSpecified);
 
                     if (string.IsNullOrWhiteSpace(generator.SourceCodeDir))
-                        helpWriter.WriteLine("-s option must be specified.");
+                        helpWriter.WriteLine(CmdToMSBuild.Properties.Resources.SourceCodeDirNotSpecified);
 
                 }
 
@@ -69,7 +69,7 @@ namespace DXBuildGenerator {
 
         private static bool CheckDirectoryExists(TextWriter helpWriter, string path) {
             if (!Directory.Exists(path)) {
-                helpWriter.WriteLine("Directory '{0}' not found.", path);
+                helpWriter.WriteLine(CmdToMSBuild.Properties.Resources.DirectoryNotFound, path);
                 return false;
             }
             else
