@@ -117,4 +117,8 @@
     <value>Directory '{0}' not found.</value>
     <comment>DirectoryNotFound description</comment>
   </data>
+  <data name="UseHelpOptionForUsage" xml:space="preserve">
+    <value>Use --help option for usage</value>
+    <comment>UseHelpOptionForUsage description</comment>
+  </data>
 </root>

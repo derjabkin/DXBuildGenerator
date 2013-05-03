@@ -8,7 +8,7 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace CmdToMSBuild.Properties {
+namespace DXBuildGenerator.Properties {
     using System;
     
     
@@ -39,7 +39,7 @@ namespace CmdToMSBuild.Properties {
         internal static global::System.Resources.ResourceManager ResourceManager {
             get {
                 if (object.ReferenceEquals(resourceMan, null)) {
-                    global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("CmdToMSBuild.Properties.Resources", typeof(Resources).Assembly);
+                    global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("DXBuildGenerator.Properties.Resources", typeof(Resources).Assembly);
                     resourceMan = temp;
                 }
                 return resourceMan;
@@ -102,6 +102,15 @@ namespace CmdToMSBuild.Properties {
         internal static string SourceCodeDirNotSpecified {
             get {
                 return ResourceManager.GetString("SourceCodeDirNotSpecified", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Use --help option for usage.
+        /// </summary>
+        internal static string UseHelpOptionForUsage {
+            get {
+                return ResourceManager.GetString("UseHelpOptionForUsage", resourceCulture);
             }
         }
     }

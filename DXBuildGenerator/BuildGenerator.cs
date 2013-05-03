@@ -9,35 +9,38 @@ using CommandLine;
 using CommandLine.Text;
 using Microsoft.Build.Evaluation;
 using CmdToMSBuild;
+using DXBuildGenerator.Properties;
 
 namespace DXBuildGenerator {
     class BuildGenerator {
         private readonly List<string> referenceFiles = new List<string>();
         private Assembly vsShellAssembly;
         private List<string> libraryAssemblyNames = new List<string>();
+        private readonly TextWriter helpWriter;
 
 
 
-        private BuildGenerator() {
-
+        private BuildGenerator(TextWriter helpWriter) {
+            this.helpWriter = helpWriter;
         }
         internal static BuildGenerator Create(Parser commandLineParser, string[] args) {
-
-            BuildGenerator generator = new BuildGenerator();
 
             if (commandLineParser == null)
                 throw new ArgumentNullException("commandLineParser");
 
+            BuildGenerator generator = new BuildGenerator(commandLineParser.Settings.HelpWriter);
+            var helpWriter = generator.helpWriter;
 
-            TextWriter helpWriter = commandLineParser.Settings.HelpWriter;
 
             if (commandLineParser.ParseArguments(args, generator)) {
 
                 if ((string.IsNullOrWhiteSpace(generator.ReferencesPath) || string.IsNullOrWhiteSpace(generator.SourceCodeDir))
                     && string.IsNullOrEmpty(generator.DevExpressRoot)) {
-                    helpWriter.WriteLine(CmdToMSBuild.Properties.Resources.NoPathSpecifiedMessage);
-                }
+                    helpWriter.WriteLine(Resources.NoPathSpecifiedMessage);
+                    helpWriter.WriteLine(Properties.Resources.UseHelpOptionForUsage);
 
+                    return null;
+                }
 
 
                 if (!string.IsNullOrWhiteSpace(generator.DevExpressRoot)) {
@@ -46,15 +49,7 @@ namespace DXBuildGenerator {
                     generator.OutputPath = generator.ReferencesPath = Path.Combine(generator.DevExpressRoot, "Bin", "Framework");
                     generator.SourceCodeDir = Path.Combine(generator.DevExpressRoot, "Sources");
 
-                    helpWriter.WriteLine(CmdToMSBuild.Properties.Resources.OriginalFilesReplacementWarning);
-                }
-                else {
-                    if (string.IsNullOrWhiteSpace(generator.ReferencesPath))
-                        helpWriter.WriteLine(CmdToMSBuild.Properties.Resources.ReferencePathNotSpecified);
-
-                    if (string.IsNullOrWhiteSpace(generator.SourceCodeDir))
-                        helpWriter.WriteLine(CmdToMSBuild.Properties.Resources.SourceCodeDirNotSpecified);
-
+                    helpWriter.WriteLine(Resources.OriginalFilesReplacementWarning);
                 }
 
 
@@ -67,17 +62,19 @@ namespace DXBuildGenerator {
         }
 
 
+        internal static BuildGenerator Create(string[] args) {
+            return Create(Parser.Default, args);
+        }
+
         private static bool CheckDirectoryExists(TextWriter helpWriter, string path) {
             if (!Directory.Exists(path)) {
-                helpWriter.WriteLine(CmdToMSBuild.Properties.Resources.DirectoryNotFound, path);
+                helpWriter.WriteLine(Resources.DirectoryNotFound, path);
                 return false;
             }
             else
                 return true;
         }
-        internal static BuildGenerator Create(string[] args) {
-            return Create(Parser.Default, args);
-        }
+        
 
         internal void Generate() {
             XDocument project = XDocument.Load(TemplateFileName);
@@ -232,9 +229,8 @@ namespace DXBuildGenerator {
             }
         }
 
-        [Option('x', HelpText = "Path to the DevExpress installation folder.\r\n" +
-            "If this option is specified, Source code directory,  references directory and the output path are determinated automatically.\r\n" +
-            "Example DXGenerator -x \"c:\\Program Files (x86)\\DevExpress\\DXperience 12.2\"")]
+        [Option('x', HelpText = "Path to the DevExpress installation folder." +
+            "If this option is specified, Source code directory,  references directory and the output path are determinated automatically.")]
         public string DevExpressRoot { get; set; }
 
         [Option("op", HelpText = "Output path for the compiled assemblies. If the value is not specified, the property value from the template will be used.")]
@@ -269,6 +265,8 @@ namespace DXBuildGenerator {
                 AddDashesToOption = true
             };
             help.AddPreOptionsLine("Usage: DXBuildGenerator -s <source directory> -r <references directory>");
+            help.AddPreOptionsLine("Or: DXBuildGenerator -x <devexpress root directory>");
+            help.AddPreOptionsLine("\r\nExample DXGenerator -x \"c:\\Program Files (x86)\\DevExpress\\DXperience 12.2\"");
             help.AddOptions(this);
             return help;
         }
