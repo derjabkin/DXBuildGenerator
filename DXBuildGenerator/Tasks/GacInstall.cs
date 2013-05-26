@@ -13,7 +13,7 @@ namespace CmdToMSBuild.Tasks
             if (File.Exists(path))
             {
                 publish.GacInstall(path);
-                Log.LogMessage(Microsoft.Build.Framework.MessageImportance.Low, "GacInstall: {0}", path);
+                Log.LogMessage(Microsoft.Build.Framework.MessageImportance.Normal, "GacInstall: {0}", path);
             }
             else
                 Log.LogError("GacInstall: File Not Found: {0}", path);

@@ -44,6 +44,7 @@ namespace DXBuildGenerator {
 
 
                 if (!string.IsNullOrWhiteSpace(generator.DevExpressRoot)) {
+            
                     if (!CheckDirectoryExists(helpWriter, generator.DevExpressRoot)) return null;
 
                     generator.OutputPath = generator.ReferencesPath = Path.Combine(generator.DevExpressRoot, "Bin", "Framework");
@@ -110,7 +111,8 @@ namespace DXBuildGenerator {
                         }
                         else {
                             windowsProjects.Add(p);
-                            libraryAssemblyNames.Add(p.GetAssemblyName());
+                            if (p.GetPropertyValue("OutputType") == "Library")
+                                libraryAssemblyNames.Add(p.GetAssemblyName());
                             added = true;
                         }
                     }
@@ -142,8 +144,8 @@ namespace DXBuildGenerator {
             CreateReferenceFilesGroup(project);
             ConvertPatchInternals(project);
 
-            ConvertProjectsToBuild(project, silverlightProjects, null, "4.0", true);
-            ConvertProjectsToBuild(project, windowsProjects, null, "4.0", false);
+            ConvertProjectsToBuild(project, silverlightProjects,  "4.0", true);
+            ConvertProjectsToBuild(project, windowsProjects,  "4.0", false);
             CreateAssemblyNamesItems(project);
 
 
@@ -295,7 +297,7 @@ namespace DXBuildGenerator {
             item.Add(new XAttribute("Include", include));
             return item;
         }
-        private void ConvertProjectsToBuild(XDocument project, SortedProjects projects, string frameworkVersion, string toolsVersion, bool silverlight) {
+        private void ConvertProjectsToBuild(XDocument project, SortedProjects projects, string toolsVersion, bool silverlight) {
             if (projects.SortedList.Count == 0) return;
 
             XElement itemGroup = CreateItemGroup();
@@ -308,11 +310,7 @@ namespace DXBuildGenerator {
                 if (silverlight)
                     projectToBuild.Add(new XElement("SL", "True"));
                 else {
-                    string fw = frameworkVersion;
-                    if (string.IsNullOrEmpty(fw))
-                        fw = GetFrameworkVersion(p);
-
-                    projectToBuild.Add(new XElement("FrameworkVersion", fw));
+                    projectToBuild.Add(new XElement("FrameworkVersion", GetFrameworkVersion(p)));
                 }
 
                 if (!string.IsNullOrWhiteSpace(toolsVersion))
