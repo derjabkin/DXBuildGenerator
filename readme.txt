@@ -14,14 +14,24 @@ Microsoft.VisualStudio.Shell.Design, Version=9.0.0.0, Culture=neutral, PublicKey
 
 
 Usage: DXBuildGenerator -s <source directory> -r <references directory>
+Or: DXBuildGenerator -x <devexpress root directory>
+
+Example DXGenerator -x "c:\Program Files (x86)\DevExpress\DXperience 12.2"
+
+  -x          Path to the DevExpress installation folder.If this option is
+              specified, Source code directory,  references directory and the
+              output path are determinated automatically.
+
+  --op        Output path for the compiled assemblies. If the value is not
+              specified, the property value from the template will be used.
 
   -t          (Default: Template.proj) Template file name
 
   -o          (Default: build.proj) Output file name
 
-  -s          Required. Source code directory
+  -s          Source code directory
 
-  -r          Required. Reference files root directory
+  -r          Reference files root directory
 
   --nosl      Skip silverlight projects
 
@@ -30,5 +40,3 @@ Usage: DXBuildGenerator -s <source directory> -r <references directory>
   --nomvc     Skip ASP.NET MVC projects
 
   --help      Display this help screen.
-  
-Example: DXBuildGenerator -s "c:\Program Files (x86)\DevExpress\DXperience 12.2\Source"  -r "c:\Program Files (x86)\DevExpress\DXperience 12.2"
