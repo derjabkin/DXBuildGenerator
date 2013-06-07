@@ -44,7 +44,7 @@ namespace DXBuildGenerator {
 
 
                 if (!string.IsNullOrWhiteSpace(generator.DevExpressRoot)) {
-            
+
                     if (!CheckDirectoryExists(helpWriter, generator.DevExpressRoot)) return null;
 
                     generator.OutputPath = generator.ReferencesPath = Path.Combine(generator.DevExpressRoot, "Bin", "Framework");
@@ -75,7 +75,7 @@ namespace DXBuildGenerator {
             else
                 return true;
         }
-        
+
 
         internal void Generate() {
             XDocument project = XDocument.Load(TemplateFileName);
@@ -98,9 +98,13 @@ namespace DXBuildGenerator {
                 bool added = false;
 
                 ProjectInfo pi = GetProjectInfo(projectFile);
-                if (!(pi.IsSilverlight && SkipSilverlightProjects) && !(pi.IsTest && SkipTestProjects) && !(pi.IsMvc && SkipMvcProjects)) {
+                Project p = null;
+                if (!(pi.IsSilverlight && SkipSilverlightProjects) &&
+                    !(pi.IsTest && SkipTestProjects) &&
+                    !(pi.IsMvc && SkipMvcProjects) &&
+                    !(pi.IsWinRT && SkipWinRTProjects)) {
 
-                    Project p = new Project(projectFile);
+                    p = new Project(projectFile);
                     //TODO: Get rid of hard-coded exclusions
                     if (!p.GetAssemblyName().Contains("SharePoint") && !p.FullPath.Contains("DevExpress.Xpo.Extensions.csproj")) {
                         if (pi.IsSilverlight) {
@@ -116,9 +120,18 @@ namespace DXBuildGenerator {
                             added = true;
                         }
                     }
-                    if (!added)
-                        excludedProjects.Add(p);
                 }
+
+                if (!added) {
+                    
+                    if (p == null)
+                        p = new Project(projectFile); //TODO: Catch a specific exception, load a project is not always possible.
+
+                    excludedProjects.Add(p);
+                    if (!pi.IsSilverlight)
+                        windowsProjects.AddExcluded(p);
+                }
+
 
             }
 
@@ -144,8 +157,8 @@ namespace DXBuildGenerator {
             CreateReferenceFilesGroup(project);
             ConvertPatchInternals(project);
 
-            ConvertProjectsToBuild(project, silverlightProjects,  "4.0", true);
-            ConvertProjectsToBuild(project, windowsProjects,  "4.0", false);
+            ConvertProjectsToBuild(project, silverlightProjects, "4.0", true);
+            ConvertProjectsToBuild(project, windowsProjects, "4.0", false);
             CreateAssemblyNamesItems(project);
 
 
@@ -200,6 +213,9 @@ namespace DXBuildGenerator {
             project.Root.Add(itemGroup);
         }
 
+        private static bool ContainsProjectType(string projectTypes, string projectTypeGuid) {
+            return projectTypes != null && projectTypes.IndexOf(projectTypeGuid, StringComparison.OrdinalIgnoreCase) >= 0;
+        }
         private static ProjectInfo GetProjectInfo(string path) {
 
             ProjectInfo result = new ProjectInfo();
@@ -211,11 +227,12 @@ namespace DXBuildGenerator {
 
             string projectTypes = GetPropertyValue(projectDoc, "ProjectTypeGuids");
 
-            result.IsTest = projectTypes != null && projectTypes.IndexOf("3AC096D0-A1C2-E12C-1390-A8335801FDAB", StringComparison.OrdinalIgnoreCase) >= 0;
-
-            result.IsMvc = projectDoc.Root.Descendants().Where(e => e.Name.LocalName == "Reference" &&
-                e.Parent.Name.LocalName == "ItemGroup" &&
-                e.Attributes().Where(a => a.Name.LocalName == "Include" && a.Value.StartsWith("System.Web.Mvc", StringComparison.OrdinalIgnoreCase)).Any()).Any();
+            result.IsTest = ContainsProjectType(projectTypes, "3AC096D0-A1C2-E12C-1390-A8335801FDAB");
+            result.IsWinRT = ContainsProjectType(projectTypes, "BC8A1FFA-BEE3-4634-8014-F334798102B3");
+            result.IsMvc = projectDoc.Root.Descendants().Any(e => e.Name.LocalName == "Reference" &&
+                                                                  e.Parent.Name.LocalName == "ItemGroup" &&
+                                                                  e.Attributes().Any(a => a.Name.LocalName == "Include" &&
+                                                                  a.Value.StartsWith("System.Web.Mvc", StringComparison.OrdinalIgnoreCase)));
 
             return result;
         }
@@ -258,6 +275,9 @@ namespace DXBuildGenerator {
 
         [Option("nomvc", HelpText = "Skip ASP.NET MVC projects")]
         public bool SkipMvcProjects { get; set; }
+
+        [Option("nowinrt", HelpText = "Skip WinRT (Windows 8) projects")]
+        public bool SkipWinRTProjects { get; set; }
 
         [HelpOption]
         public string GetUsage() {
