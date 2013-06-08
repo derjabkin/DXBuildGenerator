@@ -19,20 +19,16 @@ namespace DXBuildGenerator {
         private readonly HashSet<Project> visited = new HashSet<Project>();
         private readonly List<Project> sortedList = new List<Project>();
         private readonly HashSet<string> unknownReferences = new HashSet<string>();
-        private readonly Dictionary<string, Project> excludedProjects = new Dictionary<string, Project>(StringComparer.OrdinalIgnoreCase);
+        private readonly HashSet<string> excludedProjects = new HashSet<string>();
 
         public void Add(Project project) {
-            AddToDictionary(projects, project);
+            projects.Add(project.GetAssemblyName(), project);
         }
 
-        public void AddExcluded(Project project) {
-            AddToDictionary(excludedProjects, project);
+        public void AddExcluded(string assemblyName) {
+            excludedProjects.Add(assemblyName);
         }
 
-        private void AddToDictionary(Dictionary<string, Project> dictionary, Project project) {
-            dictionary.Add(project.GetAssemblyName(), project);
-
-        }
 
         public void Sort() {
             sortedList.Clear();
@@ -64,8 +60,8 @@ namespace DXBuildGenerator {
                             foreach (var sorted in SortProject(referencedProject))
                                 yield return sorted;
                         }
-                        else if (excludedProjects.ContainsKey(shortName)) {
-                            AddToDictionary(excludedProjects, project);
+                        else if (excludedProjects.Contains(shortName)) {
+                            excludedProjects.Add(shortName);
                             yield break;
                         }
                         else if (shortName.StartsWith("DevExpress", StringComparison.OrdinalIgnoreCase))

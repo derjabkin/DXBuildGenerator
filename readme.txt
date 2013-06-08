@@ -4,6 +4,7 @@ CAUTION: This is a pre-alpha version. The programm modifies .cs and .csproj file
 Requirements:
 
 - Silverlight 5.0
+- Newest Version of Code Contracts for .NET: http://visualstudiogallery.msdn.microsoft.com/1ec7db13-3363-46c9-851f-1ce455f66970
 
 Following assemblies are required to be installed in the GAC:
 
@@ -39,4 +40,6 @@ Example DXGenerator -x "c:\Program Files (x86)\DevExpress\DXperience 12.2"
 
   --nomvc     Skip ASP.NET MVC projects
 
+  --nowinrt   Skip WinRT (Windows 8) projects
+  
   --help      Display this help screen.

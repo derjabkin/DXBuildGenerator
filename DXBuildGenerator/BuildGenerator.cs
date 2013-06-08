@@ -86,7 +86,6 @@ namespace DXBuildGenerator {
 
             var silverlightProjects = new SortedProjects();
             var windowsProjects = new SortedProjects();
-            List<Project> excludedProjects = new List<Project>();
 
             if (!string.IsNullOrWhiteSpace(OutputPath))
                 SetPropertyValue(project, "OutputPath", OutputPath);
@@ -98,13 +97,12 @@ namespace DXBuildGenerator {
                 bool added = false;
 
                 ProjectInfo pi = GetProjectInfo(projectFile);
-                Project p = null;
                 if (!(pi.IsSilverlight && SkipSilverlightProjects) &&
                     !(pi.IsTest && SkipTestProjects) &&
                     !(pi.IsMvc && SkipMvcProjects) &&
                     !(pi.IsWinRT && SkipWinRTProjects)) {
 
-                    p = new Project(projectFile);
+                    Project p = new Project(projectFile);
                     //TODO: Get rid of hard-coded exclusions
                     if (!p.GetAssemblyName().Contains("SharePoint") && !p.FullPath.Contains("DevExpress.Xpo.Extensions.csproj")) {
                         if (pi.IsSilverlight) {
@@ -123,13 +121,10 @@ namespace DXBuildGenerator {
                 }
 
                 if (!added) {
-                    
-                    if (p == null)
-                        p = new Project(projectFile); //TODO: Catch a specific exception, load a project is not always possible.
 
-                    excludedProjects.Add(p);
+
                     if (!pi.IsSilverlight)
-                        windowsProjects.AddExcluded(p);
+                        windowsProjects.AddExcluded(pi.AssemblyName);
                 }
 
 
@@ -234,6 +229,7 @@ namespace DXBuildGenerator {
                                                                   e.Attributes().Any(a => a.Name.LocalName == "Include" &&
                                                                   a.Value.StartsWith("System.Web.Mvc", StringComparison.OrdinalIgnoreCase)));
 
+            result.AssemblyName = GetPropertyValue(projectDoc, "AssemblyName");
             return result;
         }
 
@@ -294,7 +290,7 @@ namespace DXBuildGenerator {
         }
 
         private void ConvertTargetFiles(string taskDllPath) {
-            string[] files = Directory.GetFiles(Path.Combine(SourceCodeDir, @"DevExpress.Xpf.Themes.SL"), "*.targets", SearchOption.AllDirectories);
+            string[] files = Directory.GetFiles(SourceCodeDir, "*.targets", SearchOption.AllDirectories);
             foreach (string fileName in files)
                 ReplaceUsingTask(fileName, taskDllPath);
         }
@@ -303,13 +299,18 @@ namespace DXBuildGenerator {
 
             var doc = XDocument.Load(xmlFileName);
 
+            bool changed = false;
             var tasks = doc.Descendants(String.Format("{{{0}}}UsingTask", doc.Root.Name.NamespaceName));
             foreach (var t in tasks) {
                 var attr = t.Attribute("AssemblyName");
-                if (attr != null) attr.Remove();
-                t.SetAttributeValue("AssemblyFile", taskDllPath);
+                if (attr != null && attr.Value.StartsWith("DevExpress.Build.XamlResourceProcessing", StringComparison.OrdinalIgnoreCase)) {
+                    attr.Remove();
+                    t.SetAttributeValue("AssemblyFile", taskDllPath);
+                    changed = true;
+                }
             }
-            doc.Save(xmlFileName);
+            if (changed)
+                doc.Save(xmlFileName);
         }
 
         private static XElement CreateItem(string itemName, string include) {
