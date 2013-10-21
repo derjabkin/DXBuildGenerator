@@ -78,6 +78,7 @@
     <Compile Include="Tasks\GacTaskBase.cs" />
     <Compile Include="Tasks\GacRemove.cs" />
     <Compile Include="Tasks\PatchInternalsVisibleTo.cs" />
+    <Compile Include="Utils.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />

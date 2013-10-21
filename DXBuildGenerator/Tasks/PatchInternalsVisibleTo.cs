@@ -9,8 +9,10 @@ using Microsoft.Build.Framework;
 using System.Globalization;
 using Microsoft.Build.Utilities;
 
-namespace ConvertionTasks {
-    public class PatchInternalsVisibleTo : Task {
+namespace ConvertionTasks
+{
+    public class PatchInternalsVisibleTo : Task
+    {
 
         [Required]
         public ITaskItem[] FileNames { get; set; }
@@ -21,92 +23,115 @@ namespace ConvertionTasks {
         [Required]
         public string KeyFileName { get; set; }
 
-        private bool CheckFileExists(string fileName) {
-            if (!File.Exists(fileName)) {
+        private bool CheckFileExists(string fileName)
+        {
+            if (!File.Exists(fileName))
+            {
                 Log.LogError("The file {0} not found", fileName);
                 return false;
             }
             else
                 return true;
         }
-        public override bool Execute() {
+        public override bool Execute()
+        {
 
             if (!CheckFileExists(SNExeFileName) | !CheckFileExists(KeyFileName))
                 return false;
 
-            foreach (ITaskItem taskItem in FileNames) {
+            foreach (ITaskItem taskItem in FileNames)
+            {
                 PerformPatch(taskItem.ItemSpec,
                     Path.GetFullPath(KeyFileName));
             }
-            return true;    
+            return true;
         }
 
-        private void PerformPatch(string fileName, string keyFileName) {
-            string publicKeyToken = CreatePublicKeyToken(keyFileName);
-            PatchFile(fileName, publicKeyToken);
+        private void PerformPatch(string fileName, string keyFileName)
+        {
+            string publicKeyToken;
+            string publicKey = RetrievePublicKeyAndToken(keyFileName, out publicKeyToken);
+            PatchFile(fileName, publicKey, publicKeyToken);
         }
 
-        static void PatchFile(string fileName, string publicKeyToken) {
-            string content = String.Empty;
-            using (StreamReader reader = new StreamReader(fileName)) {
-                content = reader.ReadToEnd();
+        private static void PatchFile(string fileName, string publicKey, string publicKeyToken)
+        {
+            string content;
+            string originalContent;
+            using (StreamReader reader = new StreamReader(fileName))
+            {
+                originalContent = content = reader.ReadToEnd();
                 reader.Close();
             }
 
             Regex regex = new Regex(@""",\s*PublicKey=[0123456789abcdefABCDEF]*""");
-            content = regex.Replace(content, String.Format("\", PublicKey={0}\"", publicKeyToken));
+            content = regex.Replace(content, String.Format("\", PublicKey={0}\"", publicKey));
 
-            string tmpFileName = Path.GetRandomFileName();
-            using (StreamWriter writer = new StreamWriter(tmpFileName)) {
-                writer.Write(content);
-                writer.Close();
+            regex = new Regex(@"(?<=public const string PublicKeyToken = \"")[0123456789abcdefABCDEF]{16}(?=\"")");
+            content = regex.Replace(content, publicKeyToken);
+
+            if (content != originalContent)
+            {
+                string tmpFileName = Path.GetRandomFileName();
+                File.WriteAllText(tmpFileName, content);
+                File.Delete(fileName);
+                File.Move(tmpFileName, fileName);
             }
-            File.Delete(fileName);
-            File.Move(tmpFileName, fileName);
         }
 
-        private string CreatePublicKeyToken(string keyFileName) {
-            string publicKeyName = CreatePublicKey(keyFileName);
-            string publicKeyToken = ObtainPublicKeyToken(publicKeyName);
-            File.Delete(publicKeyName);
-            return publicKeyToken;
+        private string RetrievePublicKeyAndToken(string keyFileName, out string token)
+        {
+            string publicKeyFileName = ExtractPublicKey(keyFileName);
+            string publicKey = GetFullPublicKey(publicKeyFileName);
+            string snOutput = ExecuteSn("-q -t {0}", publicKeyFileName).Trim();
+            token = snOutput.Substring(snOutput.Length - 16);
+            File.Delete(publicKeyFileName);
+            return publicKey;
         }
 
 
-        private static string GetPublicKeyFileName() {
+        private static string GetPublicKeyFileName()
+        {
             return Path.Combine(Path.GetTempPath(), "dx_public_key.tmp");
         }
-        private string CreatePublicKey(string keyFileName) {
+        private string ExtractPublicKey(string keyFileName)
+        {
             string fileName = GetPublicKeyFileName();
             ExecuteSn("-p \"{0}\" \"{1}\"", keyFileName, fileName);
             return fileName;
         }
 
-        private void ExecuteSn(string argumentsFormat, params object[] arguments) {
+        private string ExecuteSn(string argumentsFormat, params object[] arguments)
+        {
 
-            
+
             ProcessStartInfo psi = new ProcessStartInfo();
             psi.FileName = SNExeFileName;
             psi.Arguments = String.Format(CultureInfo.InvariantCulture, argumentsFormat, arguments);
             psi.UseShellExecute = false;
-            Log.LogMessage("Executing {0} {1}", SNExeFileName, psi.Arguments); 
-            using (Process proc = Process.Start(psi)) {
+            Log.LogMessage("Executing {0} {1}", SNExeFileName, psi.Arguments);
+            psi.RedirectStandardOutput = true;
+            using (Process proc = Process.Start(psi))
+            {
                 proc.WaitForExit();
+                return proc.StandardOutput.ReadToEnd();
             }
 
         }
 
 
-        private string ObtainPublicKeyToken(string publicKeyName) {
-            string fileName = GetPublicKeyFileName();
-            ExecuteSn("-o \"{0}\" \"{1}\"", publicKeyName, fileName);
+        private string GetFullPublicKey(string publicKeyName)
+        {
+            string csvFileName = Path.Combine(Path.GetTempPath(), "dx_public_key.csv");
+            ExecuteSn("-o \"{0}\" \"{1}\"", publicKeyName, csvFileName);
 
-            string csvContent = File.ReadAllText(fileName);
-            File.Delete(fileName);
+            string csvContent = File.ReadAllText(csvFileName);
+            File.Delete(csvFileName);
 
             string[] bytes = csvContent.Split(',');
             StringBuilder result = new StringBuilder();
-            for (int i = 0; i < bytes.Length; i++) {
+            for (int i = 0; i < bytes.Length; i++)
+            {
                 int byteValue = Int32.Parse(bytes[i]);
                 result.AppendFormat("{0:x2}", byteValue);
             }
