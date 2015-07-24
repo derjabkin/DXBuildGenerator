@@ -123,9 +123,10 @@ namespace DXBuildGenerator
                     !(pi.IsWinRT && SkipWinRTProjects))
                 {
 
-                    Project p = new Project(projectFile);
+                    Project p = TryOpenProject(projectFile);
                     //TODO: Get rid of hard-coded exclusions
-                    if (!p.GetAssemblyName().Contains("SharePoint") && !p.FullPath.Contains("DevExpress.Xpo.Extensions.csproj"))
+                    if (p!=null  && !p.GetAssemblyName().Contains("SharePoint") && 
+                        !p.FullPath.Contains("DevExpress.Xpo.Extensions.csproj"))
                     {
                         if (pi.IsSilverlight)
                         {
@@ -188,6 +189,18 @@ namespace DXBuildGenerator
         }
 
 
+        private static Project TryOpenProject(string projectFileName)
+        {
+            try
+            {
+                return new Project(projectFileName);
+            }
+            catch(Microsoft.Build.Exceptions.InvalidProjectFileException)
+            {
+                return null;
+            }
+
+        }
         private void ResolvePaths()
         {
             if (!string.IsNullOrWhiteSpace(DevExpressRoot))
@@ -281,7 +294,7 @@ namespace DXBuildGenerator
             string fileName = Path.GetFileName(referenceFileName);
             File.Copy(referenceFileName, Path.Combine(CopyReferencesDirecotry, fileName), true);
             return Path.Combine(Utils.MakeRelativePath(
-                Path.GetDirectoryName(Path.GetFullPath(OutputFileName)),CopyReferencesDirecotry),
+                Path.GetDirectoryName(Path.GetFullPath(OutputFileName)), CopyReferencesDirecotry),
                 fileName);
         }
 
@@ -365,7 +378,11 @@ namespace DXBuildGenerator
             foreach (var t in tasks)
             {
                 var attr = t.Attribute("AssemblyName");
-                if (attr != null && attr.Value.StartsWith("DevExpress.Build.XamlResourceProcessing", StringComparison.OrdinalIgnoreCase))
+                if (attr == null)
+                    attr = t.Attribute("AssemblyFile");
+
+
+                if (attr != null && Path.GetFileName(attr.Value).StartsWith("DevExpress.Build.XamlResourceProcessing", StringComparison.OrdinalIgnoreCase))
                 {
                     attr.Remove();
                     t.SetAttributeValue("AssemblyFile", taskDllPath);
@@ -392,7 +409,7 @@ namespace DXBuildGenerator
             {
 
                 XElement projectToBuild = CreateItem("ProjectToBuild",
-                    string.Format(CultureInfo.InvariantCulture, "$(DevExpressSourceDir)\\{0}",  Utils.MakeRelativePath(SourceCodeDir, p.FullPath)));
+                    string.Format(CultureInfo.InvariantCulture, "$(DevExpressSourceDir)\\{0}", Utils.MakeRelativePath(SourceCodeDir, p.FullPath)));
 
                 if (silverlight)
                     projectToBuild.Add(new XElement("SL", "True"));
@@ -479,6 +496,7 @@ namespace DXBuildGenerator
             }
 
         }
+
 
         private static void UpdateProjectReferences(Project p)
         {
