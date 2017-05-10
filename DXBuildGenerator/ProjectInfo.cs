@@ -12,5 +12,8 @@ namespace CmdToMSBuild
         public bool IsMvc { get; set; }
         public bool IsWinRT { get; set; }
         public string AssemblyName { get; set; }
+        public bool IsUwp { get; set; }
+
+        public bool IsCodedUITests { get; set; }
     }
 }

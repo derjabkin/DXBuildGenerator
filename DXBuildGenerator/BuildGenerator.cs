@@ -120,13 +120,13 @@ namespace DXBuildGenerator
                 if (!(pi.IsSilverlight && SkipSilverlightProjects) &&
                     !(pi.IsTest && SkipTestProjects) &&
                     !(pi.IsMvc && SkipMvcProjects) &&
-                    !(pi.IsWinRT && SkipWinRTProjects))
+                    !(pi.IsWinRT && SkipWinRTProjects) && 
+                    !pi.IsUwp && !pi.IsCodedUITests)
                 {
 
                     Project p = TryOpenProject(projectFile);
                     //TODO: Get rid of hard-coded exclusions
-                    if (p!=null  && !p.GetAssemblyName().Contains("SharePoint") && 
-                        !p.FullPath.Contains("DevExpress.Xpo.Extensions.csproj"))
+                    if (p != null && !p.GetAssemblyName().Contains("SharePoint"))
                     {
                         if (pi.IsSilverlight)
                         {
@@ -193,9 +193,11 @@ namespace DXBuildGenerator
         {
             try
             {
-                return new Project(projectFileName);
+                Dictionary<string, string> globalProperties = new Dictionary<string, string>();
+                globalProperties["VisualStudioVersion"] = "14.0";   
+                return new Project(projectFileName, globalProperties, "14.0");
             }
-            catch(Microsoft.Build.Exceptions.InvalidProjectFileException)
+            catch (Microsoft.Build.Exceptions.InvalidProjectFileException ex)
             {
                 return null;
             }
@@ -279,8 +281,11 @@ namespace DXBuildGenerator
                                                                   e.Parent.Name.LocalName == "ItemGroup" &&
                                                                   e.Attributes().Any(a => a.Name.LocalName == "Include" &&
                                                                   a.Value.StartsWith("System.Web.Mvc", StringComparison.OrdinalIgnoreCase)));
+            result.IsCodedUITests = ContainsProjectType(projectTypes, "3AC096D0-A1C2-E12C-1390-A8335801FDAB");
 
             result.AssemblyName = GetPropertyValue(projectDoc, "AssemblyName");
+            string targetPlatfrom = GetPropertyValue(projectDoc, "TargetPlatformIdentifier");
+            result.IsUwp = targetPlatfrom == "UAP" || Path.GetFileName(path).Contains(".UWP.");
             return result;
         }
 

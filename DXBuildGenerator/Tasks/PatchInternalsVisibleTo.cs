@@ -84,6 +84,9 @@ namespace ConvertionTasks
             string publicKeyFileName = ExtractPublicKey(keyFileName);
             string publicKey = GetFullPublicKey(publicKeyFileName);
             string snOutput = ExecuteSn("-q -t {0}", publicKeyFileName).Trim();
+            if (string.IsNullOrWhiteSpace(snOutput))
+                throw new InvalidOperationException("The output of sn.exe is empty.");
+
             token = snOutput.Substring(snOutput.Length - 16);
             File.Delete(publicKeyFileName);
             return publicKey;
