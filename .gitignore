@@ -32,3 +32,4 @@ obj.Wpf
 objSL
 *.pdb
 TestResults
+.vs
