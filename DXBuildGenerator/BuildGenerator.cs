@@ -1,15 +1,15 @@
-﻿using System;
+﻿using CmdToMSBuild;
+using CommandLine;
+using CommandLine.Text;
+using DXBuildGenerator.Properties;
+using Microsoft.Build.Evaluation;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Xml.Linq;
-using CommandLine;
-using CommandLine.Text;
-using Microsoft.Build.Evaluation;
-using CmdToMSBuild;
-using DXBuildGenerator.Properties;
 
 namespace DXBuildGenerator
 {
@@ -120,7 +120,7 @@ namespace DXBuildGenerator
                 if (!(pi.IsSilverlight && SkipSilverlightProjects) &&
                     !(pi.IsTest && SkipTestProjects) &&
                     !(pi.IsMvc && SkipMvcProjects) &&
-                    !(pi.IsWinRT && SkipWinRTProjects) && 
+                    !(pi.IsWinRT && SkipWinRTProjects) &&
                     !pi.IsUwp && !pi.IsCodedUITests)
                 {
 
@@ -194,10 +194,10 @@ namespace DXBuildGenerator
             try
             {
                 Dictionary<string, string> globalProperties = new Dictionary<string, string>();
-                globalProperties["VisualStudioVersion"] = "14.0";   
+                globalProperties["VisualStudioVersion"] = "14.0";
                 return new Project(projectFileName, globalProperties, "14.0");
             }
-            catch (Microsoft.Build.Exceptions.InvalidProjectFileException ex)
+            catch (Microsoft.Build.Exceptions.InvalidProjectFileException)
             {
                 return null;
             }
@@ -350,6 +350,9 @@ namespace DXBuildGenerator
         [Option("copyrefdir", HelpText = "Reference files will be copied in the specified directory")]
         public string CopyReferencesDirecotry { get; set; }
 
+        [Option("no-framework-version", HelpText = "Do not add framework version elements to the project. For DX from 18.2")]
+        public bool SkipFrameworkVersion { get; set; }
+
         [HelpOption]
         public string GetUsage()
         {
@@ -416,13 +419,13 @@ namespace DXBuildGenerator
                 XElement projectToBuild = CreateItem("ProjectToBuild",
                     string.Format(CultureInfo.InvariantCulture, "$(DevExpressSourceDir)\\{0}", Utils.MakeRelativePath(SourceCodeDir, p.FullPath)));
 
-                if (silverlight)
-                    projectToBuild.Add(new XElement("SL", "True"));
-                else
+                if (!SkipFrameworkVersion)
                 {
-                    projectToBuild.Add(new XElement("FrameworkVersion", GetFrameworkVersion(p)));
+                    if (silverlight)
+                        projectToBuild.Add(new XElement("SL", "True"));
+                    else
+                        projectToBuild.Add(new XElement("FrameworkVersion", GetFrameworkVersion(p)));
                 }
-
                 if (!string.IsNullOrWhiteSpace(toolsVersion))
                     projectToBuild.Add(new XElement("ToolsVersion", toolsVersion));
 
@@ -521,11 +524,7 @@ namespace DXBuildGenerator
             if (shouldSaveProject) p.Save();
         }
 
-        private static string MakeShortReference(string reference)
-        {
-            AssemblyName an = new AssemblyName(reference);
-            return an.Name;
-        }
+        private static string MakeShortReference(string reference) => new AssemblyName(reference).Name;
 
         private static Assembly GetMicrosoftVisualStudioShellAssembly()
         {
