@@ -17,18 +17,30 @@ namespace DXBuildGenerator
         /// <param name="dontEscape">Boolean indicating whether to add uri safe escapes to the relative path</param>
         /// <returns>The relative path from the start directory to the end path.</returns>
         /// <exception cref="ArgumentNullException"></exception>
-        public static String MakeRelativePath(String fromPath, String toPath)
+        public static string MakeRelativePath(string fromPath, string toPath)
         {
-            if (String.IsNullOrEmpty(fromPath)) throw new ArgumentNullException("fromPath");
-            if (String.IsNullOrEmpty(toPath)) throw new ArgumentNullException("toPath");
+            if (string.IsNullOrEmpty(fromPath)) throw new ArgumentNullException("fromPath");
+            if (string.IsNullOrEmpty(toPath)) throw new ArgumentNullException("toPath");
 
-            Uri fromUri = new Uri(Path.GetFullPath(fromPath) + "\\");
-            Uri toUri = new Uri(Path.GetFullPath(toPath));
+            Uri fromUri = new Uri(GetFullPath(fromPath) + "\\");
+            Uri toUri = new Uri(GetFullPath(toPath));
 
             Uri relativeUri = fromUri.MakeRelativeUri(toUri);
-            String relativePath = Uri.UnescapeDataString(relativeUri.ToString());
+            string relativePath = Uri.UnescapeDataString(relativeUri.ToString());
 
             return relativePath.Replace('/', Path.DirectorySeparatorChar);
+        }
+
+        private static string GetFullPath(string fromPath)
+        {
+            try
+            {
+                return Path.GetFullPath(fromPath);
+            }
+            catch(ArgumentException aex)
+            {
+                throw new ArgumentException($"GetFullPath failed for '{fromPath}'", aex);
+            }
         }
     }
 }
