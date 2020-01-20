@@ -12,20 +12,17 @@ namespace DXBuildGenerator
     using Microsoft.Build.Evaluation;
     using System.Reflection;
 
-    /// <summary>
-    /// TODO: Update summary.
-    /// </summary>
-    public class SortedProjects
+    class SortedProjects
     {
-        private readonly Dictionary<string, Project> projects = new Dictionary<string, Project>(StringComparer.OrdinalIgnoreCase);
-        private readonly HashSet<Project> visited = new HashSet<Project>();
-        private readonly List<Project> sortedList = new List<Project>();
+        private readonly Dictionary<string, ProjectInfo> projects = new Dictionary<string, ProjectInfo>(StringComparer.OrdinalIgnoreCase);
+        private readonly HashSet<ProjectInfo> visited = new HashSet<ProjectInfo>();
+        private readonly List<ProjectInfo> sortedList = new List<ProjectInfo>();
         private readonly HashSet<string> unknownReferences = new HashSet<string>();
         private readonly HashSet<string> excludedProjects = new HashSet<string>();
 
-        public void Add(Project project)
+        public void Add(ProjectInfo projectInfo)
         {
-            projects.Add(project.GetAssemblyName(), project);
+            projects.Add(projectInfo.MSBuildProject.GetAssemblyName(), projectInfo);
         }
 
         public void AddExcluded(string assemblyName)
@@ -53,20 +50,19 @@ namespace DXBuildGenerator
             }
         }
 
-        public IList<Project> SortedList { get { return sortedList; } }
+        public IList<ProjectInfo> SortedList => sortedList;
 
-        private IEnumerable<Project> SortProject(Project project)
+        private IEnumerable<ProjectInfo> SortProject(ProjectInfo project)
         {
             if (!visited.Contains(project))
             {
                 visited.Add(project);
-                foreach (var reference in project.GetItems("Reference"))
+                foreach (var reference in project.MSBuildProject.GetItems("Reference"))
                 {
                     //TODO: Get rid of hard-coded exclusions
                     AssemblyName assemblyName = new AssemblyName(reference.EvaluatedInclude);
                     string shortName = assemblyName.Name;
-                    Project referencedProject;
-                    if (projects.TryGetValue(shortName, out referencedProject))
+                    if (projects.TryGetValue(shortName, out var referencedProject))
                     {
                         foreach (var sorted in SortProject(referencedProject))
                             yield return sorted;

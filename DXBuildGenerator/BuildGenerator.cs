@@ -1,5 +1,4 @@
-﻿using CmdToMSBuild;
-using CommandLine;
+﻿using CommandLine;
 using CommandLine.Text;
 using DXBuildGenerator.Properties;
 using Microsoft.Build.Evaluation;
@@ -15,6 +14,8 @@ namespace DXBuildGenerator
 {
     class BuildGenerator
     {
+
+
         private readonly List<string> referenceFiles = new List<string>();
         private Assembly vsShellAssembly;
         private List<string> libraryAssemblyNames = new List<string>();
@@ -103,9 +104,8 @@ namespace DXBuildGenerator
 
             vsShellAssembly = GetMicrosoftVisualStudioShellAssembly();
 
-            var silverlightProjects = new SortedProjects();
-            var windowsProjects = new SortedProjects();
 
+            var projects = new Dictionary<ProjectPlatform, SortedProjects>();
             if (!string.IsNullOrWhiteSpace(OutputPath))
                 SetPropertyValue(project, "OutputPath", OutputPath);
 
@@ -117,6 +117,11 @@ namespace DXBuildGenerator
                 bool added = false;
 
                 ProjectInfo pi = GetProjectInfo(projectFile);
+                if (!projects.TryGetValue(pi.Platform, out var platformProjects))
+                {
+                    platformProjects = projects[pi.Platform] = new SortedProjects();
+                }
+
                 if (!(pi.IsSilverlight && SkipSilverlightProjects) &&
                     !(pi.IsTest && SkipTestProjects) &&
                     !(pi.IsMvc && SkipMvcProjects) &&
@@ -125,47 +130,41 @@ namespace DXBuildGenerator
                 {
 
                     Project p = TryOpenProject(projectFile);
+                    pi.MSBuildProject = p;
                     //TODO: Get rid of hard-coded exclusions
                     if (p != null && !p.GetAssemblyName().Contains("SharePoint"))
                     {
-                        if (pi.IsSilverlight)
-                        {
-                            if (!p.FullPath.Contains(".DemoBase."))
-                            {
-                                silverlightProjects.Add(p);
-                                added = true;
-                            }
-                        }
-                        else
-                        {
-                            windowsProjects.Add(p);
-                            if (p.GetPropertyValue("OutputType") == "Library")
-                                libraryAssemblyNames.Add(p.GetAssemblyName());
-                            added = true;
-                        }
+                        platformProjects.Add(pi);
+                        if (p.GetPropertyValue("OutputType") == "Library" && pi.Platform == ProjectPlatform.Windows)
+                            libraryAssemblyNames.Add(p.GetAssemblyName());
+                        added = true;
                     }
                 }
 
                 if (!added)
                 {
-
-
                     if (!pi.IsSilverlight)
-                        windowsProjects.AddExcluded(pi.AssemblyName);
+                        platformProjects.AddExcluded(pi.AssemblyName);
                 }
 
 
             }
 
-            silverlightProjects.Sort();
-            windowsProjects.Sort();
-
-            foreach (var p in windowsProjects.SortedList)
-                UpdateProjectReferences(p);
 
             referenceFiles.Clear();
-            PopulateReferenceFiles(silverlightProjects.UnknownReferences);
-            PopulateReferenceFiles(windowsProjects.UnknownReferences);
+
+            foreach (var sortedProjects in projects.Values)
+            {
+                sortedProjects.Sort();
+                foreach (var prj in sortedProjects.SortedList)
+                {
+                    UpdateProjectReferences(prj.MSBuildProject);
+                }
+
+                PopulateReferenceFiles(sortedProjects.UnknownReferences);
+                ConvertProjectsToBuild(project, sortedProjects);
+            }
+
             referenceFiles.Add(typeof(System.Data.Entity.DbContext).Assembly.Location);
             string xamlResProcDll = Directory.GetFiles(ReferencesPath, "DevExpress.Build.XamlResourceProcessing*.dll", SearchOption.AllDirectories).FirstOrDefault();
             if (!string.IsNullOrEmpty(xamlResProcDll))
@@ -179,9 +178,6 @@ namespace DXBuildGenerator
 
             CreateReferenceFilesGroup(project);
             ConvertPatchInternals(project);
-
-            ConvertProjectsToBuild(project, silverlightProjects, "4.0", true);
-            ConvertProjectsToBuild(project, windowsProjects, "4.0", false);
             CreateAssemblyNamesItems(project);
 
 
@@ -197,7 +193,7 @@ namespace DXBuildGenerator
                 globalProperties["VisualStudioVersion"] = "14.0";
                 return new Project(projectFileName, globalProperties, "14.0");
             }
-            catch (Microsoft.Build.Exceptions.InvalidProjectFileException)
+            catch (Microsoft.Build.Exceptions.InvalidProjectFileException ex)
             {
                 return null;
             }
@@ -269,7 +265,8 @@ namespace DXBuildGenerator
             ProjectInfo result = new ProjectInfo();
 
             XDocument projectDoc = XDocument.Load(path);
-            result.IsSilverlight = Path.GetFileNameWithoutExtension(path).EndsWith(".SL", StringComparison.OrdinalIgnoreCase) ||
+            string projectName = Path.GetFileNameWithoutExtension(path);
+            result.IsSilverlight = projectName.EndsWith(".SL", StringComparison.OrdinalIgnoreCase) ||
                 GetPropertyValue(projectDoc, "TargetFrameworkIdentifier") == "Silverlight" ||
                 GetPropertyValue(projectDoc, "BaseIntermediateOutputPath").Contains("obj.SL");
 
@@ -281,11 +278,18 @@ namespace DXBuildGenerator
                                                                   e.Parent.Name.LocalName == "ItemGroup" &&
                                                                   e.Attributes().Any(a => a.Name.LocalName == "Include" &&
                                                                   a.Value.StartsWith("System.Web.Mvc", StringComparison.OrdinalIgnoreCase)));
-            result.IsCodedUITests = ContainsProjectType(projectTypes, "3AC096D0-A1C2-E12C-1390-A8335801FDAB");
+            result.IsCodedUITests = projectName.StartsWith("CodedUIExtension"); ContainsProjectType(projectTypes, "3AC096D0-A1C2-E12C-1390-A8335801FDAB");
 
             result.AssemblyName = GetPropertyValue(projectDoc, "AssemblyName");
             string targetPlatfrom = GetPropertyValue(projectDoc, "TargetPlatformIdentifier");
-            result.IsUwp = targetPlatfrom == "UAP" || Path.GetFileName(path).Contains(".UWP.");
+            if (projectName.EndsWith("NetCore", StringComparison.OrdinalIgnoreCase))
+                result.Platform = ProjectPlatform.Standard;
+            else if (projectName.EndsWith("Standard", StringComparison.OrdinalIgnoreCase))
+                result.Platform = ProjectPlatform.Standard;
+            else if (targetPlatfrom == "UAP" || Path.GetFileName(path).Contains(".UWP."))
+                result.Platform = ProjectPlatform.UWP;
+            else
+                result.Platform = ProjectPlatform.Windows;
             return result;
         }
 
@@ -350,9 +354,8 @@ namespace DXBuildGenerator
         [Option("copyrefdir", HelpText = "Reference files will be copied in the specified directory")]
         public string CopyReferencesDirecotry { get; set; }
 
-        [Option("no-framework-version", HelpText = "Do not add framework version elements to the project. For DX from 18.2")]
-        public bool SkipFrameworkVersion { get; set; }
-
+        [Option("no-codedui", HelpText = "Skip CodedUI Proejcts")]
+        public bool SkipCodedUIProject { get; set; }
         [HelpOption]
         public string GetUsage()
         {
@@ -407,7 +410,7 @@ namespace DXBuildGenerator
             item.Add(new XAttribute("Include", include));
             return item;
         }
-        private void ConvertProjectsToBuild(XDocument project, SortedProjects projects, string toolsVersion, bool silverlight)
+        private void ConvertProjectsToBuild(XDocument project, SortedProjects projects)
         {
             if (projects.SortedList.Count == 0) return;
 
@@ -416,18 +419,8 @@ namespace DXBuildGenerator
             foreach (var p in projects.SortedList)
             {
 
-                XElement projectToBuild = CreateItem("ProjectToBuild",
-                    string.Format(CultureInfo.InvariantCulture, "$(DevExpressSourceDir)\\{0}", Utils.MakeRelativePath(SourceCodeDir, p.FullPath)));
-
-                if (!SkipFrameworkVersion)
-                {
-                    if (silverlight)
-                        projectToBuild.Add(new XElement("SL", "True"));
-                    else
-                        projectToBuild.Add(new XElement("FrameworkVersion", GetFrameworkVersion(p)));
-                }
-                if (!string.IsNullOrWhiteSpace(toolsVersion))
-                    projectToBuild.Add(new XElement("ToolsVersion", toolsVersion));
+                XElement projectToBuild = CreateItem(p.Platform + "Project",
+                    string.Format(CultureInfo.InvariantCulture, "$(DevExpressSourceDir)\\{0}", Utils.MakeRelativePath(SourceCodeDir, p.MSBuildProject.FullPath)));
 
                 itemGroup.Add(projectToBuild);
             }

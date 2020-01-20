@@ -33,3 +33,4 @@ objSL
 *.pdb
 TestResults
 .vs
+packages

@@ -1,9 +1,10 @@
-﻿using System;
+﻿using Microsoft.Build.Evaluation;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace CmdToMSBuild
+namespace DXBuildGenerator
 {
     class ProjectInfo
     {
@@ -12,8 +13,13 @@ namespace CmdToMSBuild
         public bool IsMvc { get; set; }
         public bool IsWinRT { get; set; }
         public string AssemblyName { get; set; }
-        public bool IsUwp { get; set; }
+        public bool IsUwp => Platform == ProjectPlatform.UWP;
 
         public bool IsCodedUITests { get; set; }
+
+        public ProjectPlatform Platform { get; set; }
+
+        public Project MSBuildProject { get; set; }
     }
+
 }
