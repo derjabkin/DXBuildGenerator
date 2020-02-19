@@ -18,10 +18,8 @@ namespace DXBuildGenerator
 
         private readonly List<string> referenceFiles = new List<string>();
         private Assembly vsShellAssembly;
-        private List<string> libraryAssemblyNames = new List<string>();
+        private readonly List<string> libraryAssemblyNames = new List<string>();
         private readonly TextWriter helpWriter;
-
-
 
         private BuildGenerator(TextWriter helpWriter)
         {
@@ -105,12 +103,12 @@ namespace DXBuildGenerator
             vsShellAssembly = GetMicrosoftVisualStudioShellAssembly();
 
 
-            var projects = new Dictionary<ProjectPlatform, SortedProjects>();
+            var projects = new SortedDictionary<ProjectPlatform, SortedProjects>();
             if (!string.IsNullOrWhiteSpace(OutputPath))
                 SetPropertyValue(project, "OutputPath", OutputPath);
 
             SetPropertyValue(project, "DevExpressSourceDir", SourceCodeDir);
-            SetPropertyValue(project, "TasksAssembly", GetType().Assembly.Location);
+            SetPropertyValue(project, "TasksAssembly", Utils.MakeRelativePath(Path.GetDirectoryName(Path.GetFullPath(OutputFileName)), GetType().Assembly.Location));
 
             foreach (var projectFile in projectFiles)
             {
@@ -273,7 +271,9 @@ namespace DXBuildGenerator
             string projectTypes = GetPropertyValue(projectDoc, "ProjectTypeGuids");
 
             result.IsTest = ContainsProjectType(projectTypes, "3AC096D0-A1C2-E12C-1390-A8335801FDAB");
-            result.IsWinRT = ContainsProjectType(projectTypes, "BC8A1FFA-BEE3-4634-8014-F334798102B3");
+            result.IsWinRT = ContainsProjectType(projectTypes, "BC8A1FFA-BEE3-4634-8014-F334798102B3") ||
+                string.Equals(GetPropertyValue(projectDoc, "BaseIntermediateOutputPath"), "obj.RT", StringComparison.OrdinalIgnoreCase);
+
             result.IsMvc = projectDoc.Root.Descendants().Any(e => e.Name.LocalName == "Reference" &&
                                                                   e.Parent.Name.LocalName == "ItemGroup" &&
                                                                   e.Attributes().Any(a => a.Name.LocalName == "Include" &&
@@ -282,12 +282,13 @@ namespace DXBuildGenerator
 
             result.AssemblyName = GetPropertyValue(projectDoc, "AssemblyName");
             string targetPlatfrom = GetPropertyValue(projectDoc, "TargetPlatformIdentifier");
-            if (projectName.EndsWith("NetCore", StringComparison.OrdinalIgnoreCase))
-                result.Platform = ProjectPlatform.Standard;
-            else if (projectName.EndsWith("Standard", StringComparison.OrdinalIgnoreCase))
+            string targetFramework = GetPropertyValue(projectDoc, "TargetFramework");
+            if (targetFramework.StartsWith("netstandard", StringComparison.OrdinalIgnoreCase))
                 result.Platform = ProjectPlatform.Standard;
             else if (targetPlatfrom == "UAP" || Path.GetFileName(path).Contains(".UWP."))
                 result.Platform = ProjectPlatform.UWP;
+            else if (targetFramework.StartsWith("netcoreapp", StringComparison.OrdinalIgnoreCase))
+                result.Platform = ProjectPlatform.NetCore;
             else
                 result.Platform = ProjectPlatform.Windows;
             return result;
@@ -419,9 +420,10 @@ namespace DXBuildGenerator
             foreach (var p in projects.SortedList)
             {
 
-                XElement projectToBuild = CreateItem(p.Platform + "Project",
+                XElement projectToBuild = CreateItem("ProjectToBuild",
                     string.Format(CultureInfo.InvariantCulture, "$(DevExpressSourceDir)\\{0}", Utils.MakeRelativePath(SourceCodeDir, p.MSBuildProject.FullPath)));
 
+                projectToBuild.Add(new XElement("Platform", p.Platform.ToString()));
                 itemGroup.Add(projectToBuild);
             }
 
