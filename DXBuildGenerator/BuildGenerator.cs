@@ -163,7 +163,10 @@ namespace DXBuildGenerator
                 ConvertProjectsToBuild(project, sortedProjects);
             }
 
-            referenceFiles.Add(typeof(System.Data.Entity.DbContext).Assembly.Location);
+            string entityFrameworkFileName = Path.Combine(ReferencesPath, "EntityFramework.dll");
+            if (File.Exists(entityFrameworkFileName))
+                referenceFiles.Add(entityFrameworkFileName);
+
             string xamlResProcDll = Directory.GetFiles(ReferencesPath, "DevExpress.Build.XamlResourceProcessing*.dll", SearchOption.AllDirectories).FirstOrDefault();
             if (!string.IsNullOrEmpty(xamlResProcDll))
             {
