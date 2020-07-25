@@ -2,8 +2,8 @@
 {
     enum ProjectPlatform
     {
-        Windows,
         Standard,
+        Windows,
         NetCore,
         UWP
     }
