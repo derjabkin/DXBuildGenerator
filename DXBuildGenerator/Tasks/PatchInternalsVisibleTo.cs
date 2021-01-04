@@ -110,7 +110,7 @@ namespace ConvertionTasks
 
             ProcessStartInfo psi = new ProcessStartInfo();
             psi.FileName = SNExeFileName;
-            psi.Arguments = String.Format(CultureInfo.InvariantCulture, argumentsFormat, arguments);
+            psi.Arguments = string.Format(CultureInfo.InvariantCulture, argumentsFormat, arguments);
             psi.UseShellExecute = false;
             Log.LogMessage("Executing {0} {1}", SNExeFileName, psi.Arguments);
             psi.RedirectStandardOutput = true;

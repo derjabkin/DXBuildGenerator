@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "DXBuildGenerator": {
+      "commandName": "Project",
+      "workingDirectory": "c:\\Sergey\\DotNet\\DevExpressBuild"
+    }
+  }
+}

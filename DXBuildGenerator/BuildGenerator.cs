@@ -1,5 +1,4 @@
 ﻿using CommandLine;
-using CommandLine.Text;
 using DXBuildGenerator.Properties;
 using Microsoft.Build.Evaluation;
 using System;
@@ -12,66 +11,72 @@ using System.Xml.Linq;
 
 namespace DXBuildGenerator
 {
-    class BuildGenerator
+    partial class BuildGenerator
     {
 
 
         private readonly List<string> referenceFiles = new List<string>();
-        private Assembly vsShellAssembly;
         private readonly List<string> libraryAssemblyNames = new List<string>();
         private readonly TextWriter helpWriter;
 
-        private BuildGenerator(TextWriter helpWriter)
+
+        private BuildGenerator(CommandLineOptions options, TextWriter helpWriter)
         {
+            Options = options ?? throw new ArgumentNullException(nameof(options));
             this.helpWriter = helpWriter;
+        }
+        public CommandLineOptions Options { get; }
+
+        internal static BuildGenerator Create(CommandLineOptions options, TextWriter helpWriter)
+        {
+            if ((string.IsNullOrWhiteSpace(options.ReferencesPath) || string.IsNullOrWhiteSpace(options.SourceCodeDir))
+                && string.IsNullOrEmpty(options.DevExpressRoot))
+            {
+                helpWriter.WriteLine(Resources.NoPathSpecifiedMessage);
+                helpWriter.WriteLine(Properties.Resources.UseHelpOptionForUsage);
+                return null;
+            }
+
+
+            if (!string.IsNullOrWhiteSpace(options.DevExpressRoot))
+            {
+
+                if (!CheckDirectoryExists(helpWriter, options.DevExpressRoot)) return null;
+
+                options.OutputPath = options.ReferencesPath = Path.Combine(options.DevExpressRoot, "Bin", "Framework");
+                options.SourceCodeDir = Path.Combine(options.DevExpressRoot, "Sources");
+
+                helpWriter.WriteLine(Resources.OriginalFilesReplacementWarning);
+            }
+
+
+            if (CheckDirectoryExists(helpWriter, options.SourceCodeDir) && CheckDirectoryExists(helpWriter, options.ReferencesPath)
+                && CheckDirectoryExistsOrEmpty(helpWriter, options.CopyReferencesDirecotry))
+            {
+                return new BuildGenerator(options, helpWriter);
+            }
+
+            return null;
         }
         internal static BuildGenerator Create(Parser commandLineParser, string[] args)
         {
 
             if (commandLineParser == null)
-                throw new ArgumentNullException("commandLineParser");
-
-            BuildGenerator generator = new BuildGenerator(commandLineParser.Settings.HelpWriter);
-            var helpWriter = generator.helpWriter;
+                throw new ArgumentNullException(nameof(commandLineParser));
 
 
-            if (commandLineParser.ParseArguments(args, generator))
-            {
-
-                if ((string.IsNullOrWhiteSpace(generator.ReferencesPath) || string.IsNullOrWhiteSpace(generator.SourceCodeDir))
-                    && string.IsNullOrEmpty(generator.DevExpressRoot))
-                {
-                    helpWriter.WriteLine(Resources.NoPathSpecifiedMessage);
-                    helpWriter.WriteLine(Properties.Resources.UseHelpOptionForUsage);
-
-                    return null;
-                }
-
-
-                if (!string.IsNullOrWhiteSpace(generator.DevExpressRoot))
-                {
-
-                    if (!CheckDirectoryExists(helpWriter, generator.DevExpressRoot)) return null;
-
-                    generator.OutputPath = generator.ReferencesPath = Path.Combine(generator.DevExpressRoot, "Bin", "Framework");
-                    generator.SourceCodeDir = Path.Combine(generator.DevExpressRoot, "Sources");
-
-                    helpWriter.WriteLine(Resources.OriginalFilesReplacementWarning);
-                }
-
-
-                if (CheckDirectoryExists(helpWriter, generator.SourceCodeDir) && CheckDirectoryExists(helpWriter, generator.ReferencesPath)
-                    && CheckDirectoryExistsOrEmpty(helpWriter, generator.CopyReferencesDirecotry))
-                    return generator;
-            }
-
-            return null;
+            var result = commandLineParser.ParseArguments<CommandLineOptions>(args);
+            var helpWriter = commandLineParser.Settings.HelpWriter;
+            BuildGenerator generator = null;
+            result.WithParsed(options => generator = Create(options, helpWriter));
+            return generator;
 
         }
 
 
         internal static BuildGenerator Create(string[] args)
         {
+
             return Create(Parser.Default, args);
         }
 
@@ -96,19 +101,16 @@ namespace DXBuildGenerator
 
         internal void Generate()
         {
-            XDocument project = XDocument.Load(TemplateFileName);
+            XDocument project = XDocument.Load(Options.TemplateFileName);
 
-            string[] projectFiles = Directory.GetFiles(SourceCodeDir, "*.csproj", SearchOption.AllDirectories);
-
-            vsShellAssembly = GetMicrosoftVisualStudioShellAssembly();
-
+            string[] projectFiles = Directory.GetFiles(Options.SourceCodeDir, "*.csproj", SearchOption.AllDirectories);
 
             var projects = new SortedDictionary<ProjectPlatform, SortedProjects>();
-            if (!string.IsNullOrWhiteSpace(OutputPath))
-                SetPropertyValue(project, "OutputPath", OutputPath);
+            if (!string.IsNullOrWhiteSpace(Options.OutputPath))
+                SetPropertyValue(project, "OutputPath", Options.OutputPath);
 
-            SetPropertyValue(project, "DevExpressSourceDir", SourceCodeDir);
-            SetPropertyValue(project, "TasksAssembly", Utils.MakeRelativePath(Path.GetDirectoryName(Path.GetFullPath(OutputFileName)), GetType().Assembly.Location));
+            SetPropertyValue(project, "DevExpressSourceDir", Options.SourceCodeDir);
+            SetPropertyValue(project, "TasksAssembly", Utils.MakeRelativePath(Path.GetDirectoryName(Path.GetFullPath(Options.OutputFileName)), GetType().Assembly.Location));
 
             foreach (var projectFile in projectFiles)
             {
@@ -120,10 +122,10 @@ namespace DXBuildGenerator
                     platformProjects = projects[pi.Platform] = new SortedProjects();
                 }
 
-                if (!(pi.IsSilverlight && SkipSilverlightProjects) &&
-                    !(pi.IsTest && SkipTestProjects) &&
-                    !(pi.IsMvc && SkipMvcProjects) &&
-                    !(pi.IsWinRT && SkipWinRTProjects) &&
+                if (!(pi.IsSilverlight && Options.SkipSilverlightProjects) &&
+                    !(pi.IsTest && Options.SkipTestProjects) &&
+                    !(pi.IsMvc && Options.SkipMvcProjects) &&
+                    !(pi.IsWinRT && Options.SkipWinRTProjects) &&
                     !pi.IsUwp && !pi.IsCodedUITests)
                 {
 
@@ -163,11 +165,11 @@ namespace DXBuildGenerator
                 ConvertProjectsToBuild(project, sortedProjects);
             }
 
-            string entityFrameworkFileName = Path.Combine(ReferencesPath, "EntityFramework.dll");
+            string entityFrameworkFileName = Path.Combine(Options.ReferencesPath, "EntityFramework.dll");
             if (File.Exists(entityFrameworkFileName))
                 referenceFiles.Add(entityFrameworkFileName);
 
-            string xamlResProcDll = Directory.GetFiles(ReferencesPath, "DevExpress.Build.XamlResourceProcessing*.dll", SearchOption.AllDirectories).FirstOrDefault();
+            string xamlResProcDll = Directory.GetFiles(Options.ReferencesPath, "DevExpress.Build.XamlResourceProcessing*.dll", SearchOption.AllDirectories).FirstOrDefault();
             if (!string.IsNullOrEmpty(xamlResProcDll))
             {
                 referenceFiles.Add(xamlResProcDll);
@@ -182,19 +184,18 @@ namespace DXBuildGenerator
             CreateAssemblyNamesItems(project);
 
 
-            File.WriteAllText(OutputFileName, project.ToString().Replace("<ItemGroup xmlns=\"\">", "<ItemGroup>"));
+            File.WriteAllText(Options.OutputFileName, project.ToString().Replace("<ItemGroup xmlns=\"\">", "<ItemGroup>"));
         }
 
 
-        private static Project TryOpenProject(string projectFileName)
+        private Project TryOpenProject(string projectFileName)
         {
             try
             {
-                Dictionary<string, string> globalProperties = new Dictionary<string, string>();
-                globalProperties["VisualStudioVersion"] = "14.0";
-                return new Project(projectFileName, globalProperties, "14.0");
+                helpWriter.WriteLine($"Loading {projectFileName}");
+                return new Project(projectFileName, new Dictionary<string, string>(), "Current", new ProjectCollection(), ProjectLoadSettings.IgnoreMissingImports);
             }
-            catch (Microsoft.Build.Exceptions.InvalidProjectFileException ex)
+            catch (Microsoft.Build.Exceptions.InvalidProjectFileException)
             {
                 return null;
             }
@@ -202,7 +203,7 @@ namespace DXBuildGenerator
         }
         private void ResolvePaths()
         {
-            if (!string.IsNullOrWhiteSpace(DevExpressRoot))
+            if (!string.IsNullOrWhiteSpace(Options.DevExpressRoot))
             {
 
             }
@@ -300,21 +301,21 @@ namespace DXBuildGenerator
 
         private string MakeRelativeReferenceFilePath(string referenceFileName)
         {
-            if (string.IsNullOrEmpty(CopyReferencesDirecotry))
+            if (string.IsNullOrEmpty(Options.CopyReferencesDirecotry))
                 return referenceFileName;
 
             string path = Path.GetDirectoryName(referenceFileName);
             string fileName = Path.GetFileName(referenceFileName);
-            File.Copy(referenceFileName, Path.Combine(CopyReferencesDirecotry, fileName), true);
+            File.Copy(referenceFileName, Path.Combine(Options.CopyReferencesDirecotry, fileName), true);
             return Path.Combine(Utils.MakeRelativePath(
-                Path.GetDirectoryName(Path.GetFullPath(OutputFileName)), CopyReferencesDirecotry),
+                Path.GetDirectoryName(Path.GetFullPath(Options.OutputFileName)), Options.CopyReferencesDirecotry),
                 fileName);
         }
 
         private void PopulateReferenceFiles(IEnumerable<string> references)
         {
             string[] fileNames = references.Select(r => r += ".dll").ToArray();
-            foreach (string filePath in Directory.EnumerateFiles(ReferencesPath, "*.dll", SearchOption.AllDirectories))
+            foreach (string filePath in Directory.EnumerateFiles(Options.ReferencesPath, "*.dll", SearchOption.AllDirectories))
             {
                 string fileName = Path.GetFileName(filePath);
                 if (fileNames.Contains(fileName, StringComparer.OrdinalIgnoreCase) && !referenceFiles.Contains(fileName, StringComparer.OrdinalIgnoreCase))
@@ -324,61 +325,10 @@ namespace DXBuildGenerator
             }
         }
 
-        [Option('x', HelpText = "Path to the DevExpress installation folder." +
-            "If this option is specified, Source code directory,  references directory and the output path are determinated automatically.")]
-        public string DevExpressRoot { get; set; }
-
-        [Option("op", HelpText = "Output path for the compiled assemblies. If the value is not specified, the property value from the template will be used.")]
-        public string OutputPath { get; set; }
-
-        [Option('t', HelpText = "Template file name", DefaultValue = "Template.proj")]
-        public string TemplateFileName { get; set; }
-
-        [Option('o', HelpText = "Output file name", DefaultValue = "build.proj")]
-        public string OutputFileName { get; set; }
-
-        [Option('s', HelpText = "Source code directory")]
-        public string SourceCodeDir { get; set; }
-
-        [Option('r', HelpText = "Reference files root directory")]
-        public string ReferencesPath { get; set; }
-
-        [Option("nosl", HelpText = "Skip silverlight projects")]
-        public bool SkipSilverlightProjects { get; set; }
-
-        [Option("notest", HelpText = "Skip test projects")]
-        public bool SkipTestProjects { get; set; }
-
-        [Option("nomvc", HelpText = "Skip ASP.NET MVC projects")]
-        public bool SkipMvcProjects { get; set; }
-
-        [Option("nowinrt", HelpText = "Skip WinRT (Windows 8) projects")]
-        public bool SkipWinRTProjects { get; set; }
-
-        [Option("copyrefdir", HelpText = "Reference files will be copied in the specified directory")]
-        public string CopyReferencesDirecotry { get; set; }
-
-        [Option("no-codedui", HelpText = "Skip CodedUI Proejcts")]
-        public bool SkipCodedUIProject { get; set; }
-        [HelpOption]
-        public string GetUsage()
-        {
-            var help = new HelpText
-            {
-                Heading = new HeadingInfo("DXBuildGenerator", GetType().Assembly.GetName().Version.ToString()),
-                AdditionalNewLineAfterOption = true,
-                AddDashesToOption = true
-            };
-            help.AddPreOptionsLine("Usage: DXBuildGenerator -s <source directory> -r <references directory>");
-            help.AddPreOptionsLine("Or: DXBuildGenerator -x <devexpress root directory>");
-            help.AddPreOptionsLine("\r\nExample DXGenerator -x \"c:\\Program Files (x86)\\DevExpress\\DXperience 12.2\"");
-            help.AddOptions(this);
-            return help;
-        }
 
         private void ConvertTargetFiles(string taskDllPath)
         {
-            string[] files = Directory.GetFiles(SourceCodeDir, "*.targets", SearchOption.AllDirectories);
+            string[] files = Directory.GetFiles(Options.SourceCodeDir, "*.targets", SearchOption.AllDirectories);
             foreach (string fileName in files)
                 ReplaceUsingTask(fileName, taskDllPath);
         }
@@ -426,7 +376,7 @@ namespace DXBuildGenerator
             {
 
                 XElement projectToBuild = CreateItem("ProjectToBuild",
-                    string.Format(CultureInfo.InvariantCulture, "$(DevExpressSourceDir)\\{0}", Utils.MakeRelativePath(SourceCodeDir, p.MSBuildProject.FullPath)));
+                    string.Format(CultureInfo.InvariantCulture, "$(DevExpressSourceDir)\\{0}", Utils.MakeRelativePath(Options.SourceCodeDir, p.MSBuildProject.FullPath)));
 
                 projectToBuild.Add(new XElement("Platform", p.Platform.ToString()));
                 itemGroup.Add(projectToBuild);
@@ -468,12 +418,12 @@ namespace DXBuildGenerator
 
         private void ConvertPatchInternals(XDocument project)
         {
-            var infoFiles = Directory.GetFiles(SourceCodeDir, "Assembly*.cs", SearchOption.AllDirectories).Where(ShouldPatchInternals);
+            var infoFiles = Directory.GetFiles(Options.SourceCodeDir, "Assembly*.cs", SearchOption.AllDirectories).Where(ShouldPatchInternals);
 
             XElement itemGroup = CreateItemGroup();
             foreach (string fileFullPath in infoFiles)
             {
-                string fileName = Utils.MakeRelativePath(SourceCodeDir, fileFullPath);
+                string fileName = Utils.MakeRelativePath(Options.SourceCodeDir, fileFullPath);
                 XElement projectToBuild = new XElement("PatchInternalsVisibleTo");
                 projectToBuild.Add(new XAttribute("Include", string.Format(CultureInfo.InvariantCulture, "$(DevExpressSourceDir)\\{0}", fileName)));
                 itemGroup.Add(projectToBuild);
@@ -526,16 +476,6 @@ namespace DXBuildGenerator
 
         private static string MakeShortReference(string reference) => new AssemblyName(reference).Name;
 
-        private static Assembly GetMicrosoftVisualStudioShellAssembly()
-        {
-            string dir = Environment.ExpandEnvironmentVariables(@"%windir%\Microsoft.NET\assembly\GAC_MSIL\Microsoft.VisualStudio.Shell");
-            if (Directory.Exists(dir))
-            {
-                string versionDir = Directory.GetDirectories(dir).OrderBy(d => d).First();
-                return Assembly.ReflectionOnlyLoadFrom(Directory.GetFiles(versionDir).Single());
-            }
-            else
-                return null;
-        }
     }
+
 }
