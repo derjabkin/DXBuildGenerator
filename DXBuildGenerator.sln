@@ -1,9 +1,13 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 2012
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.30717.126
+MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DXBuildGenerator", "DXBuildGenerator\DXBuildGenerator.csproj", "{6B26468F-6172-483F-A980-956D057B7B1A}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UnitTests", "UnitTests\UnitTests.csproj", "{0B036CE6-81A2-4141-882D-197CD675DB51}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DXBuildGenerator.Tasks", "DXBuildGenerator.Tasks\DXBuildGenerator.Tasks.csproj", "{2EA6FBFD-1938-4D62-BD36-2046372DDE5F}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -19,8 +23,15 @@ Global
 		{0B036CE6-81A2-4141-882D-197CD675DB51}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{0B036CE6-81A2-4141-882D-197CD675DB51}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{0B036CE6-81A2-4141-882D-197CD675DB51}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2EA6FBFD-1938-4D62-BD36-2046372DDE5F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2EA6FBFD-1938-4D62-BD36-2046372DDE5F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2EA6FBFD-1938-4D62-BD36-2046372DDE5F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2EA6FBFD-1938-4D62-BD36-2046372DDE5F}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {2D6242A1-F6A8-450C-A590-529FE7B46FD6}
 	EndGlobalSection
 EndGlobal
