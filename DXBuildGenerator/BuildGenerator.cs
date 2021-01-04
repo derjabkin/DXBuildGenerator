@@ -388,8 +388,10 @@ namespace DXBuildGenerator
 
             var doc = XDocument.Load(xmlFileName);
 
+            bool namespaceName = string.IsNullOrWhiteSpace(doc.Root.Name.NamespaceName);
+            if (namespaceName) return;
             bool changed = false;
-            var tasks = doc.Descendants(String.Format("{{{0}}}UsingTask", doc.Root.Name.NamespaceName));
+            var tasks = doc.Descendants(String.Format("{{{0}}}UsingTask", namespaceName));
             foreach (var t in tasks)
             {
                 var attr = t.Attribute("AssemblyName");
