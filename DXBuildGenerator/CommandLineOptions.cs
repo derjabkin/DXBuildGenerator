@@ -44,7 +44,7 @@ namespace DXBuildGenerator
         public bool SkipCodedUIProject { get; set; }
 
         [Usage]
-        public IEnumerable<Example> Examples
+        public static IEnumerable<Example> Examples
         {
             get
             {

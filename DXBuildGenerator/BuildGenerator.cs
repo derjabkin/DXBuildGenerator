@@ -64,7 +64,6 @@ namespace DXBuildGenerator
             if (commandLineParser == null)
                 throw new ArgumentNullException(nameof(commandLineParser));
 
-
             var result = commandLineParser.ParseArguments<CommandLineOptions>(args);
             var helpWriter = commandLineParser.Settings.HelpWriter;
             BuildGenerator generator = null;
