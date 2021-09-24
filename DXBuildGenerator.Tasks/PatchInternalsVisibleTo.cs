@@ -8,6 +8,8 @@ using System.Text.RegularExpressions;
 using Microsoft.Build.Framework;
 using System.Globalization;
 using Microsoft.Build.Utilities;
+using System.Reflection;
+using System.Security.Cryptography;
 
 namespace ConvertionTasks
 {
@@ -17,8 +19,6 @@ namespace ConvertionTasks
         [Required]
         public ITaskItem[] FileNames { get; set; }
 
-        [Required]
-        public string SNExeFileName { get; set; }
 
         [Required]
         public string KeyFileName { get; set; }
@@ -36,7 +36,7 @@ namespace ConvertionTasks
         public override bool Execute()
         {
 
-            if (!CheckFileExists(SNExeFileName) | !CheckFileExists(KeyFileName))
+            if (!CheckFileExists(KeyFileName))
                 return false;
 
             foreach (ITaskItem taskItem in FileNames)
@@ -45,6 +45,13 @@ namespace ConvertionTasks
                     Path.GetFullPath(KeyFileName));
             }
             return true;
+        }
+
+        public static byte[] GetPublicKey(byte[] snk) => new StrongNameKeyPair(snk).PublicKey;
+
+        private static string ToHex(byte[] snk)
+        {
+            return string.Join(string.Empty, snk.Select(b => b.ToString("x2", CultureInfo.InvariantCulture)));
         }
 
         private void PerformPatch(string fileName, string keyFileName)
@@ -81,65 +88,26 @@ namespace ConvertionTasks
 
         private string RetrievePublicKeyAndToken(string keyFileName, out string token)
         {
-            string publicKeyFileName = ExtractPublicKey(keyFileName);
-            string publicKey = GetFullPublicKey(publicKeyFileName);
-            string snOutput = ExecuteSn("-q -t {0}", publicKeyFileName).Trim();
-            if (string.IsNullOrWhiteSpace(snOutput))
-                throw new InvalidOperationException("The output of sn.exe is empty.");
-
-            token = snOutput.Substring(snOutput.Length - 16);
-            File.Delete(publicKeyFileName);
-            return publicKey;
+            var publicKey = GetPublicKey(File.ReadAllBytes(keyFileName));
+            token = ToHex(GetPublicKeyToken(publicKey));
+            return ToHex(publicKey);
         }
 
 
-        private static string GetPublicKeyFileName()
+        public static byte[] GetPublicKeyToken(byte[] publicKey)
         {
-            return Path.Combine(Path.GetTempPath(), "dx_public_key.tmp");
-        }
-        private string ExtractPublicKey(string keyFileName)
-        {
-            string fileName = GetPublicKeyFileName();
-            ExecuteSn("-p \"{0}\" \"{1}\"", keyFileName, fileName);
-            return fileName;
-        }
-
-        private string ExecuteSn(string argumentsFormat, params object[] arguments)
-        {
-
-
-            ProcessStartInfo psi = new ProcessStartInfo();
-            psi.FileName = SNExeFileName;
-            psi.Arguments = string.Format(CultureInfo.InvariantCulture, argumentsFormat, arguments);
-            psi.UseShellExecute = false;
-            Log.LogMessage("Executing {0} {1}", SNExeFileName, psi.Arguments);
-            psi.RedirectStandardOutput = true;
-            using (Process proc = Process.Start(psi))
+            using (var csp = new SHA1CryptoServiceProvider())
             {
-                proc.WaitForExit();
-                return proc.StandardOutput.ReadToEnd();
+                byte[] hash = csp.ComputeHash(publicKey);
+                byte[] token = new byte[8];
+
+                for (int i = 0; i < 8; i++)
+                {
+                    token[i] = hash[hash.Length - i - 1];
+                }
+
+                return token;
             }
-
         }
-
-
-        private string GetFullPublicKey(string publicKeyName)
-        {
-            string csvFileName = Path.Combine(Path.GetTempPath(), "dx_public_key.csv");
-            ExecuteSn("-o \"{0}\" \"{1}\"", publicKeyName, csvFileName);
-
-            string csvContent = File.ReadAllText(csvFileName);
-            File.Delete(csvFileName);
-
-            string[] bytes = csvContent.Split(',');
-            StringBuilder result = new StringBuilder();
-            for (int i = 0; i < bytes.Length; i++)
-            {
-                int byteValue = Int32.Parse(bytes[i]);
-                result.AppendFormat("{0:x2}", byteValue);
-            }
-            return result.ToString();
-        }
-
     }
 }

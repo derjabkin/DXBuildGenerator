@@ -290,7 +290,8 @@ namespace DXBuildGenerator
                 result.Platform = ProjectPlatform.Standard;
             else if (targetPlatfrom == "UAP" || Path.GetFileName(path).Contains(".UWP."))
                 result.Platform = ProjectPlatform.UWP;
-            else if (targetFramework.StartsWith("netcoreapp", StringComparison.OrdinalIgnoreCase))
+            else if (targetFramework.StartsWith("netcoreapp", StringComparison.OrdinalIgnoreCase) ||
+                targetFramework.StartsWith("net5", StringComparison.OrdinalIgnoreCase))
                 result.Platform = ProjectPlatform.NetCore;
             else
                 result.Platform = ProjectPlatform.Windows;
@@ -337,10 +338,8 @@ namespace DXBuildGenerator
 
             var doc = XDocument.Load(xmlFileName);
 
-            bool namespaceName = string.IsNullOrWhiteSpace(doc.Root.Name.NamespaceName);
-            if (namespaceName) return;
             bool changed = false;
-            var tasks = doc.Descendants(String.Format("{{{0}}}UsingTask", namespaceName));
+            var tasks = doc.Descendants().Where(d=>d.Name.LocalName == "UsingTask");
             foreach (var t in tasks)
             {
                 var attr = t.Attribute("AssemblyName");
