@@ -291,7 +291,7 @@ namespace DXBuildGenerator
             else if (targetPlatfrom == "UAP" || Path.GetFileName(path).Contains(".UWP."))
                 result.Platform = ProjectPlatform.UWP;
             else if (targetFramework.StartsWith("netcoreapp", StringComparison.OrdinalIgnoreCase) ||
-                targetFramework.StartsWith("net5", StringComparison.OrdinalIgnoreCase))
+                targetFramework.StartsWith("net", StringComparison.OrdinalIgnoreCase))
                 result.Platform = ProjectPlatform.NetCore;
             else
                 result.Platform = ProjectPlatform.Windows;
