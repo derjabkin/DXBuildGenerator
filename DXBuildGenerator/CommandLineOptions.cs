@@ -40,6 +40,10 @@ namespace DXBuildGenerator
         [Option("no-codedui", HelpText = "Skip CodedUI Proejcts")]
         public bool SkipCodedUIProject { get; set; }
 
+        [Option("assemblyFoldersFile", HelpText = "If specified, a file containing a list of assemblynames and project folders will be generated")]
+        public string AssemblyFoldersFile { get; set; }
+
+
         [Usage]
         public static IEnumerable<Example> Examples
         {

@@ -16,15 +16,15 @@ namespace DXBuildGenerator
 
 
         private readonly List<string> referenceFiles = new List<string>();
-        private readonly List<string> libraryAssemblyNames = new List<string>();
         private readonly TextWriter helpWriter;
-
+        private readonly Dictionary<string, string> assemblyProjectFolders = new();
 
         private BuildGenerator(CommandLineOptions options, TextWriter helpWriter)
         {
             Options = options ?? throw new ArgumentNullException(nameof(options));
             this.helpWriter = helpWriter;
         }
+
         public CommandLineOptions Options { get; }
 
         internal static BuildGenerator Create(CommandLineOptions options, TextWriter helpWriter)
@@ -119,10 +119,7 @@ namespace DXBuildGenerator
                     platformProjects = projects[pi.Platform] = new SortedProjects();
                 }
 
-                if (!(pi.IsTest && Options.SkipTestProjects) &&
-                    !(pi.IsMvc && Options.SkipMvcProjects) &&
-                    !(pi.IsWinRT && Options.SkipWinRTProjects) &&
-                    !pi.IsUwp && !pi.IsCodedUITests)
+                if (IsNotExcluded(pi))
                 {
 
                     Project p = TryOpenProject(projectFile);
@@ -131,12 +128,10 @@ namespace DXBuildGenerator
                     if (p != null && !p.GetAssemblyName().Contains("SharePoint"))
                     {
                         platformProjects.Add(pi);
-                        if (p.GetPropertyValue("OutputType") == "Library" && pi.Platform == ProjectPlatform.Windows)
-                            libraryAssemblyNames.Add(p.GetAssemblyName());
+                        if (!string.IsNullOrEmpty(pi.AssemblyName))
+                            assemblyProjectFolders[pi.AssemblyName] = Path.GetDirectoryName(projectFile);
                     }
                 }
-
-
             }
 
 
@@ -170,12 +165,23 @@ namespace DXBuildGenerator
 
             CreateReferenceFilesGroup(project);
             ConvertPatchInternals(project);
-            CreateAssemblyNamesItems(project);
 
 
             File.WriteAllText(Options.OutputFileName, project.ToString().Replace("<ItemGroup xmlns=\"\">", "<ItemGroup>"));
+
+            if (!string.IsNullOrEmpty(Options.AssemblyFoldersFile))
+            {
+                File.WriteAllLines(Options.AssemblyFoldersFile, assemblyProjectFolders.Select(kv => $"{kv.Key}:{kv.Value}").ToArray());
+            }
         }
 
+        private bool IsNotExcluded(ProjectInfo pi)
+        {
+            return !(pi.IsTest && Options.SkipTestProjects) &&
+                                !(pi.IsMvc && Options.SkipMvcProjects) &&
+                                !(pi.IsWinRT && Options.SkipWinRTProjects) &&
+                                !pi.IsUwp && !pi.IsCodedUITests;
+        }
 
         private Project TryOpenProject(string projectFileName)
         {
@@ -196,16 +202,6 @@ namespace DXBuildGenerator
             {
 
             }
-        }
-        private void CreateAssemblyNamesItems(XDocument project)
-        {
-            var itemGroup = CreateItemGroup();
-            foreach (var name in libraryAssemblyNames)
-            {
-                itemGroup.Add(CreateItem("OutputAssembly", string.Format(CultureInfo.InvariantCulture, @"$(OutputPath)\{0}.dll", name)));
-            }
-
-            project.Root.Add(itemGroup);
         }
 
         private static void SetPropertyValue(XDocument project, string propertyName, string value)
