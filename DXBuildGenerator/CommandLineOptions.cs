@@ -25,9 +25,6 @@ namespace DXBuildGenerator
         [Option('r', HelpText = "Reference files root directory")]
         public string ReferencesPath { get; set; }
 
-        [Option("nosl", HelpText = "Skip silverlight projects")]
-        public bool SkipSilverlightProjects { get; set; }
-
         [Option("notest", HelpText = "Skip test projects")]
         public bool SkipTestProjects { get; set; }
 

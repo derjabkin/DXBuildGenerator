@@ -8,7 +8,6 @@ namespace DXBuildGenerator
 {
     class ProjectInfo
     {
-        public bool IsSilverlight { get; set; }
         public bool IsTest { get; set; }
         public bool IsMvc { get; set; }
         public bool IsWinRT { get; set; }
@@ -20,6 +19,9 @@ namespace DXBuildGenerator
         public ProjectPlatform Platform { get; set; }
 
         public Project MSBuildProject { get; set; }
+        public string FrameworkVersion { get; set; }
+        
+        public bool IsXpf { get; internal set; }
     }
 
 }

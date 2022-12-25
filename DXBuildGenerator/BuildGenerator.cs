@@ -113,16 +113,13 @@ namespace DXBuildGenerator
 
             foreach (var projectFile in projectFiles)
             {
-                bool added = false;
-
                 ProjectInfo pi = GetProjectInfo(projectFile);
                 if (!projects.TryGetValue(pi.Platform, out var platformProjects))
                 {
                     platformProjects = projects[pi.Platform] = new SortedProjects();
                 }
 
-                if (!(pi.IsSilverlight && Options.SkipSilverlightProjects) &&
-                    !(pi.IsTest && Options.SkipTestProjects) &&
+                if (!(pi.IsTest && Options.SkipTestProjects) &&
                     !(pi.IsMvc && Options.SkipMvcProjects) &&
                     !(pi.IsWinRT && Options.SkipWinRTProjects) &&
                     !pi.IsUwp && !pi.IsCodedUITests)
@@ -136,14 +133,7 @@ namespace DXBuildGenerator
                         platformProjects.Add(pi);
                         if (p.GetPropertyValue("OutputType") == "Library" && pi.Platform == ProjectPlatform.Windows)
                             libraryAssemblyNames.Add(p.GetAssemblyName());
-                        added = true;
                     }
-                }
-
-                if (!added)
-                {
-                    if (!pi.IsSilverlight)
-                        platformProjects.AddExcluded(pi.AssemblyName);
                 }
 
 
@@ -267,10 +257,6 @@ namespace DXBuildGenerator
 
             XDocument projectDoc = XDocument.Load(path);
             string projectName = Path.GetFileNameWithoutExtension(path);
-            result.IsSilverlight = projectName.EndsWith(".SL", StringComparison.OrdinalIgnoreCase) ||
-                GetPropertyValue(projectDoc, "TargetFrameworkIdentifier") == "Silverlight" ||
-                GetPropertyValue(projectDoc, "BaseIntermediateOutputPath").Contains("obj.SL");
-
             string projectTypes = GetPropertyValue(projectDoc, "ProjectTypeGuids");
 
             result.IsTest = ContainsProjectType(projectTypes, "3AC096D0-A1C2-E12C-1390-A8335801FDAB");
@@ -294,7 +280,13 @@ namespace DXBuildGenerator
                 targetFramework.StartsWith("net", StringComparison.OrdinalIgnoreCase))
                 result.Platform = ProjectPlatform.NetCore;
             else
+            {
                 result.Platform = ProjectPlatform.Windows;
+                result.FrameworkVersion = "v4.6";
+            }
+
+            if (path.Contains(@"\XPF\", StringComparison.OrdinalIgnoreCase))
+                result.IsXpf = true;
             return result;
         }
 
@@ -339,7 +331,7 @@ namespace DXBuildGenerator
             var doc = XDocument.Load(xmlFileName);
 
             bool changed = false;
-            var tasks = doc.Descendants().Where(d=>d.Name.LocalName == "UsingTask");
+            var tasks = doc.Descendants().Where(d => d.Name.LocalName == "UsingTask");
             foreach (var t in tasks)
             {
                 var attr = t.Attribute("AssemblyName");
@@ -377,6 +369,12 @@ namespace DXBuildGenerator
                     string.Format(CultureInfo.InvariantCulture, "$(DevExpressSourceDir)\\{0}", Utils.MakeRelativePath(Options.SourceCodeDir, p.MSBuildProject.FullPath)));
 
                 projectToBuild.Add(new XElement("Platform", p.Platform.ToString()));
+                if (!string.IsNullOrWhiteSpace(p.FrameworkVersion))
+                    projectToBuild.Add(new XElement("FrameworkVersion", p.FrameworkVersion));
+
+                if (p.IsXpf)
+                    projectToBuild.Add(new XElement("Product", "Xpf"));
+
                 itemGroup.Add(projectToBuild);
             }
 
