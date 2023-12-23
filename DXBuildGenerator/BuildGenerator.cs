@@ -267,8 +267,8 @@ namespace DXBuildGenerator
             result.AssemblyName = GetPropertyValue(projectDoc, "AssemblyName");
             string targetPlatfrom = GetPropertyValue(projectDoc, "TargetPlatformIdentifier");
             string targetFramework = GetPropertyValue(projectDoc, "TargetFramework");
-
-            var platformAndFramework = GetPlatformAndFramework(targetFramework);
+            string targetFrameworkVersion = GetPropertyValue(projectDoc, "TargetFrameworkVersion");
+            var platformAndFramework = GetPlatformAndFramework(string.IsNullOrEmpty(targetFramework) ? targetFrameworkVersion : targetFramework);
             result.Platform = platformAndFramework.platform;
             result.FrameworkVersion = platformAndFramework.frameworkVersion;
 
@@ -279,6 +279,7 @@ namespace DXBuildGenerator
 
         public static (ProjectPlatform platform, string frameworkVersion) GetPlatformAndFramework(string targetFramework)
         {
+            const string minimumFrameworkVersion = "v4.6.2";
             if (targetFramework.StartsWith("netstandard", StringComparison.OrdinalIgnoreCase))
                 return (ProjectPlatform.Standard, null);
             else if (targetFramework.StartsWith("netcoreapp", StringComparison.OrdinalIgnoreCase))
@@ -290,14 +291,17 @@ namespace DXBuildGenerator
             {
                 if (string.Compare(targetFramework, "net5") >= 0)
                     return (ProjectPlatform.NetCore, null);
-                else
-                    return (ProjectPlatform.Windows, null);
+                else if (string.Compare(targetFramework, "net452") <= 0)
+                {
 
+                    return (ProjectPlatform.Windows, minimumFrameworkVersion);
+                }
             }
-            else
-            {
-                return (ProjectPlatform.Windows, "v4.6");
-            }
+            else if (string.Compare(targetFramework, "v4.5.2") <= 0)
+                return (ProjectPlatform.Windows, minimumFrameworkVersion);
+            
+            return (ProjectPlatform.Windows, targetFramework);
+
 
         }
 
