@@ -2,7 +2,7 @@
   "profiles": {
     "DXBuildGenerator": {
       "commandName": "Project",
-      "commandLineArgs": "-s Source -t template.proj -o build.proj -r \"c:\\DevExpress\\22.2.3\" --nowinrt --nomvc --assemblyFoldersFile AssemblyProjectFolders.txt",
+      "commandLineArgs": "-s Source -t template.proj -o build.proj -r \"c:\\DevExpress\\23.2.3\" --nowinrt --nomvc --assemblyFoldersFile AssemblyProjectFolders.txt",
       "workingDirectory": "c:\\Sergey\\DotNet\\DevExpressBuild"
     }
   }

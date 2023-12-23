@@ -12,7 +12,6 @@ namespace DXBuildGenerator
         public bool IsMvc { get; set; }
         public bool IsWinRT { get; set; }
         public string AssemblyName { get; set; }
-        public bool IsUwp => Platform == ProjectPlatform.UWP;
 
         public bool IsCodedUITests { get; set; }
 

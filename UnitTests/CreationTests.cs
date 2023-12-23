@@ -5,11 +5,11 @@ using CommandLine;
 using System.IO;
 using System.Text;
 using DXBuildGenerator.Properties;
+using Xunit;
 namespace UnitTests {
-    [TestClass]
     public class CreationTests {
 
-        [TestMethod]
+        [Fact]
         public void TestEmptyParameters() {
             StringBuilder sb = new StringBuilder();
 

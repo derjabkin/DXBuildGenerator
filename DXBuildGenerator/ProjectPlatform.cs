@@ -4,8 +4,7 @@
     {
         Standard,
         Windows,
-        NetCore,
-        UWP
+        NetCore
     }
 
 }

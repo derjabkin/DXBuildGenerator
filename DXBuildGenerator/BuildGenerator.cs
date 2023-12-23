@@ -101,7 +101,6 @@ namespace DXBuildGenerator
         internal void Generate()
         {
             XDocument project = XDocument.Load(Options.TemplateFileName);
-
             string[] projectFiles = Directory.GetFiles(Options.SourceCodeDir, "*.csproj", SearchOption.AllDirectories);
 
             var projects = new SortedDictionary<ProjectPlatform, SortedProjects>();
@@ -180,7 +179,7 @@ namespace DXBuildGenerator
             return !(pi.IsTest && Options.SkipTestProjects) &&
                                 !(pi.IsMvc && Options.SkipMvcProjects) &&
                                 !(pi.IsWinRT && Options.SkipWinRTProjects) &&
-                                !pi.IsUwp && !pi.IsCodedUITests;
+                                !pi.IsCodedUITests;
         }
 
         private Project TryOpenProject(string projectFileName)
@@ -268,24 +267,39 @@ namespace DXBuildGenerator
             result.AssemblyName = GetPropertyValue(projectDoc, "AssemblyName");
             string targetPlatfrom = GetPropertyValue(projectDoc, "TargetPlatformIdentifier");
             string targetFramework = GetPropertyValue(projectDoc, "TargetFramework");
-            if (targetFramework.StartsWith("netstandard", StringComparison.OrdinalIgnoreCase))
-                result.Platform = ProjectPlatform.Standard;
-            else if (targetPlatfrom == "UAP" || Path.GetFileName(path).Contains(".UWP."))
-                result.Platform = ProjectPlatform.UWP;
-            else if (targetFramework.StartsWith("netcoreapp", StringComparison.OrdinalIgnoreCase) ||
-                targetFramework.StartsWith("net", StringComparison.OrdinalIgnoreCase))
-                result.Platform = ProjectPlatform.NetCore;
-            else
-            {
-                result.Platform = ProjectPlatform.Windows;
-                result.FrameworkVersion = "v4.6";
-            }
+
+            var platformAndFramework = GetPlatformAndFramework(targetFramework);
+            result.Platform = platformAndFramework.platform;
+            result.FrameworkVersion = platformAndFramework.frameworkVersion;
 
             if (path.Contains(@"\XPF\", StringComparison.OrdinalIgnoreCase))
                 result.IsXpf = true;
             return result;
         }
 
+        public static (ProjectPlatform platform, string frameworkVersion) GetPlatformAndFramework(string targetFramework)
+        {
+            if (targetFramework.StartsWith("netstandard", StringComparison.OrdinalIgnoreCase))
+                return (ProjectPlatform.Standard, null);
+            else if (targetFramework.StartsWith("netcoreapp", StringComparison.OrdinalIgnoreCase))
+            {
+                return (ProjectPlatform.NetCore, null);
+
+            }
+            else if (targetFramework.StartsWith("net", StringComparison.OrdinalIgnoreCase))
+            {
+                if (string.Compare(targetFramework, "net5") >= 0)
+                    return (ProjectPlatform.NetCore, null);
+                else
+                    return (ProjectPlatform.Windows, null);
+
+            }
+            else
+            {
+                return (ProjectPlatform.Windows, "v4.6");
+            }
+
+        }
 
         private string MakeRelativeReferenceFilePath(string referenceFileName)
         {

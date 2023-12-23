@@ -5,4 +5,8 @@
     <TargetFramework>net5.0</TargetFramework>
   </PropertyGroup>
 
+  <ItemGroup>
+    <PackageReference Include="xunit.extensibility.core" Version="2.6.4" />
+  </ItemGroup>
+
 </Project>
