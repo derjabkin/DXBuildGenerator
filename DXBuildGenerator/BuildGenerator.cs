@@ -142,6 +142,7 @@ namespace DXBuildGenerator
                 foreach (var prj in sortedProjects.SortedList)
                 {
                     UpdateProjectReferences(prj.MSBuildProject);
+                    DisableCentralPackageManagementIfNeeded(prj.MSBuildProject);
                 }
 
                 PopulateReferenceFiles(sortedProjects.UnknownReferences);
@@ -245,7 +246,20 @@ namespace DXBuildGenerator
         {
             return projectTypes != null && projectTypes.IndexOf(projectTypeGuid, StringComparison.OrdinalIgnoreCase) >= 0;
         }
-        private static ProjectInfo GetProjectInfo(string path)
+
+        private bool HasVisualStudioReferences(string path)
+        {
+            string fileName = Path.GetFileName(path);
+            if (fileName.Contains(".Design.", StringComparison.OrdinalIgnoreCase)
+                || fileName.Contains(".DesignCore.", StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            var project = TryOpenProject(path);
+            return project != null && GetVisualReferences(project).Any();
+        }
+
+
+        private ProjectInfo GetProjectInfo(string path)
         {
 
             ProjectInfo result = new ProjectInfo();
@@ -268,7 +282,7 @@ namespace DXBuildGenerator
             string targetPlatfrom = GetPropertyValue(projectDoc, "TargetPlatformIdentifier");
             string targetFramework = GetPropertyValue(projectDoc, "TargetFramework");
             string targetFrameworkVersion = GetPropertyValue(projectDoc, "TargetFrameworkVersion");
-            var platformAndFramework = GetPlatformAndFramework(string.IsNullOrEmpty(targetFramework) ? targetFrameworkVersion : targetFramework);
+            var platformAndFramework = GetPlatformAndFramework(string.IsNullOrEmpty(targetFramework) ? targetFrameworkVersion : targetFramework, HasVisualStudioReferences(path));
             result.Platform = platformAndFramework.platform;
             result.FrameworkVersion = platformAndFramework.frameworkVersion;
 
@@ -277,9 +291,9 @@ namespace DXBuildGenerator
             return result;
         }
 
-        public static (ProjectPlatform platform, string frameworkVersion) GetPlatformAndFramework(string targetFramework)
+        public static (ProjectPlatform platform, string frameworkVersion) GetPlatformAndFramework(string targetFramework, bool containsVisualStudioReferences)
         {
-            const string minimumFrameworkVersion = "v4.6.2";
+            string minimumFrameworkVersion = containsVisualStudioReferences ? "v4.7.2" : "v4.6.2";
             if (targetFramework.StartsWith("netstandard", StringComparison.OrdinalIgnoreCase))
                 return (ProjectPlatform.Standard, null);
             else if (targetFramework.StartsWith("netcoreapp", StringComparison.OrdinalIgnoreCase))
@@ -297,9 +311,9 @@ namespace DXBuildGenerator
                     return (ProjectPlatform.Windows, minimumFrameworkVersion);
                 }
             }
-            else if (string.Compare(targetFramework, "v4.5.2") <= 0)
+            else if (string.Compare(targetFramework, "v4.6.2") < 0)
                 return (ProjectPlatform.Windows, minimumFrameworkVersion);
-            
+
             return (ProjectPlatform.Windows, targetFramework);
 
 
@@ -466,24 +480,42 @@ namespace DXBuildGenerator
         }
 
 
-        private static void UpdateProjectReferences(Project p)
+        private static IEnumerable<ProjectItem> GetVisualReferences(Project project)
+        {
+            return project.GetItems("Reference").Where(r => r.EvaluatedInclude.StartsWith("Microsoft.VisualStudio.", StringComparison.OrdinalIgnoreCase)
+                    || r.EvaluatedInclude.StartsWith("DevExpress.VisualStudio", StringComparison.OrdinalIgnoreCase));
+
+        }
+
+        private static void UpdateProjectReferences(Project project)
         {
             //Making references to VisualStudio assemblies version-neutral.
             bool shouldSaveProject = false;
-            foreach (var r in p.GetItems("Reference"))
-            {
-                if (r.EvaluatedInclude.StartsWith("Microsoft.VisualStudio.", StringComparison.OrdinalIgnoreCase)
+            var references = project.GetItems("Reference").Where(r => r.EvaluatedInclude.StartsWith("Microsoft.VisualStudio.", StringComparison.OrdinalIgnoreCase)
                     && !r.EvaluatedInclude.StartsWith("Microsoft.VisualStudio.Shell", StringComparison.OrdinalIgnoreCase)
-                    && !CanSubstituteReference(p, r.EvaluatedInclude))
-                {
-
-                    r.UnevaluatedInclude = MakeShortReference(r.EvaluatedInclude);
-                    shouldSaveProject = true;
-                }
+                    && !CanSubstituteReference(project, r.EvaluatedInclude));
+            foreach (var r in references)
+            {
+                r.UnevaluatedInclude = MakeShortReference(r.EvaluatedInclude);
+                shouldSaveProject = true;
             }
-            if (shouldSaveProject) p.Save();
+            if (shouldSaveProject) project.Save();
         }
 
+        private static bool HasPackageVersions(Project project)
+        {
+            return project.GetItems("PackageReference").Any(pr => !string.IsNullOrEmpty(pr.GetMetadataValue("Version")));
+        }
+
+        private static void DisableCentralPackageManagementIfNeeded(Project project)
+        {
+            const string propertyName = "ManagePackageVersionsCentrally";
+            if (HasPackageVersions(project) && !project.Properties.Any(p => p.Name == propertyName))
+            {
+                project.SetProperty(propertyName, "false");
+                project.Save();
+            }
+        }
         private static string MakeShortReference(string reference) => new AssemblyName(reference).Name;
 
     }
