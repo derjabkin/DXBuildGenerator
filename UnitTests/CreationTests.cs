@@ -1,12 +1,10 @@
-﻿using System;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
+﻿using CommandLine;
 using DXBuildGenerator;
-using CommandLine;
-using System.IO;
-using System.Text;
 using DXBuildGenerator.Properties;
+using System.Text;
 using Xunit;
-namespace UnitTests {
+namespace UnitTests
+{
     public class CreationTests {
 
         [Fact]
@@ -15,54 +13,53 @@ namespace UnitTests {
 
             var parser = CreateTestParser(sb);
             var generator = BuildGenerator.Create(parser, new string[0]);
-            Assert.IsNull(generator);
+            Assert.Null(generator);
             string output = sb.ToString().Trim('\r', '\n');
-            Assert.IsTrue(output.EndsWith(Resources.UseHelpOptionForUsage));
-            Assert.IsTrue(output.Contains(Resources.NoPathSpecifiedMessage));
+            Assert.EndsWith(Resources.UseHelpOptionForUsage, output);
+            Assert.Contains(Resources.NoPathSpecifiedMessage, output);
 
         }
 
 
-        [TestMethod]
+        [Fact]
         public void TestEmptySourceDir() {
             StringBuilder sb = new StringBuilder();
 
             var parser = CreateTestParser(sb);
-            var generator = BuildGenerator.Create(parser, new string[] { "-r", "Valid" });
-            Assert.IsNull(generator);
+            var generator = BuildGenerator.Create(parser, ["-r", "Valid"]);
+            Assert.Null(generator);
             string output = sb.ToString().Trim('\r', '\n');
-            Assert.IsTrue(output.Contains(Resources.NoPathSpecifiedMessage));
+            Assert.Contains(Resources.NoPathSpecifiedMessage, output);
 
         }
 
-        [TestMethod]
+        [Fact]
         public void TestEmptyReferenceDir() {
             StringBuilder sb = new StringBuilder();
 
             var parser = CreateTestParser(sb);
-            var generator = BuildGenerator.Create(parser, new string[] { "-s", "Valid" });
-            Assert.IsNull(generator);
+            var generator = BuildGenerator.Create(parser, ["-s", "Valid"]);
+            Assert.Null(generator);
             string output = sb.ToString().Trim('\r', '\n');
-            Assert.IsTrue(output.Contains(Resources.NoPathSpecifiedMessage));
+            Assert.Contains(Resources.NoPathSpecifiedMessage, output);
 
         }
 
-        [TestMethod]
+        [Fact]
         public void TestValidRootPath() {
             StringBuilder sb = new StringBuilder();
 
             var parser = CreateTestParser(sb);
-            var generator = BuildGenerator.Create(parser, new string[] { "-x", "Valid" });
+            var generator = BuildGenerator.Create(parser, ["-x", "Valid"]);
             string output = sb.ToString().Trim('\r', '\n');
-            Assert.AreEqual("Valid\\Bin\\Framework", generator.ReferencesPath);
-            Assert.AreEqual("Valid\\Bin\\Framework", generator.OutputPath);
-            Assert.AreEqual("Valid\\Sources", generator.SourceCodeDir);
-            Assert.IsNotNull(generator);
+            Assert.Equal("Valid\\Bin\\Framework", generator.Options.ReferencesPath);
+            Assert.Equal("Valid\\Bin\\Framework", generator.Options.OutputPath);
+            Assert.Equal("Valid\\Sources", generator.Options.SourceCodeDir);
+            Assert.NotNull(generator);
         }
 
         private Parser CreateTestParser(StringBuilder sb) {
-            ParserSettings settings = new ParserSettings(new StringWriter(sb));
-            return new Parser(settings);
+            return new Parser();
         }
     }
 }
