@@ -71,11 +71,11 @@ namespace ConvertionTasks
                 reader.Close();
             }
 
-            Regex regex = new Regex(@"("".*,\s*)PublicKey=[0123456789abcdefABCDEF]*""");
-            content = regex.Replace(content, String.Format("$1PublicKey={0}\"", publicKey));
-
-            regex = new Regex(@"(?<=public const string PublicKeyToken = \"")[0123456789abcdefABCDEF]{16}(?=\"")");
+            var regex = new Regex(@"(?<=public const string PublicKeyToken = \"")[0123456789abcdefABCDEF]{16}(?=\"")");
             content = regex.Replace(content, publicKeyToken);
+
+            regex = new Regex(@"(?<=public const string PublicKey = \"")[0123456789abcdefABCDEF]*(?=\"")");
+            content = regex.Replace(content, publicKey);
 
             if (content != originalContent)
             {

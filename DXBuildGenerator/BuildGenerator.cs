@@ -108,7 +108,6 @@ namespace DXBuildGenerator
                 SetPropertyValue(project, "OutputPath", Options.OutputPath);
 
             SetPropertyValue(project, "DevExpressSourceDir", Options.SourceCodeDir);
-            SetPropertyValue(project, "TasksAssembly", Utils.MakeRelativePath(Path.GetDirectoryName(Path.GetFullPath(Options.OutputFileName)), GetType().Assembly.Location));
 
             foreach (var projectFile in projectFiles)
             {
